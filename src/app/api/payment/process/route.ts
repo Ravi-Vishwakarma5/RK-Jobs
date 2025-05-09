@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  addPaymentRecord, 
-  addSubscription, 
-  getSubscriptionPlanById 
+import {
+  addPaymentRecord,
+  addSubscription,
+  getSubscriptionPlanById
 } from '@/data/subscriptions';
 import { PaymentRequest } from '@/types/subscription';
 
@@ -11,7 +11,7 @@ async function sendEmail(to: string, subject: string, body: string) {
   console.log(`Sending email to ${to}`);
   console.log(`Subject: ${subject}`);
   console.log(`Body: ${body}`);
-  
+
   // In a real application, you would use a service like SendGrid, Mailgun, etc.
   return true;
 }
@@ -19,7 +19,7 @@ async function sendEmail(to: string, subject: string, body: string) {
 export async function POST(request: NextRequest) {
   try {
     const body: PaymentRequest = await request.json();
-    
+
     // Validate required fields
     const requiredFields = ['planId', 'userId', 'email', 'name', 'paymentMethod'];
     for (const field of requiredFields) {
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    
+
     // Get the subscription plan
     const plan = getSubscriptionPlanById(body.planId);
     if (!plan) {
@@ -39,18 +39,18 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Process payment (this would normally integrate with a payment gateway like Stripe)
     // For this example, we'll simulate a successful payment
     const paymentSuccessful = Math.random() > 0.2; // 80% success rate for demo purposes
-    
+
     if (!paymentSuccessful) {
       return NextResponse.json(
         { error: 'Payment processing failed', success: false },
         { status: 400 }
       );
     }
-    
+
     // Record the payment
     const paymentRecord = addPaymentRecord({
       userId: body.userId,
@@ -62,12 +62,12 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
       transactionId: `txn_${Math.random().toString(36).substring(2, 15)}`
     });
-    
+
     // Create subscription
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + plan.duration); // Add duration (e.g., 365 days)
-    
+
     const subscription = addSubscription({
       userId: body.userId,
       planId: body.planId,
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       status: 'active',
       paymentId: paymentRecord.id
     });
-    
+
     // Send confirmation email
     await sendEmail(
       body.email,
@@ -101,14 +101,14 @@ Best regards,
 The Job Portal Team
       `
     );
-    
+
     return NextResponse.json({
       success: true,
       subscription,
       payment: paymentRecord,
-      redirectUrl: '/user/dashboard'
+      redirectUrl: '/home' // Always redirect to home page after successful payment
     });
-    
+
   } catch (error) {
     console.error('Error processing payment:', error);
     return NextResponse.json(

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const paymentRecord = addPaymentRecord({
       userId: body.userId,
       planId: body.planId,
-      amount: body.amount, // Amount is already in the correct format
+      amount: body.amount / 100, // Convert from paise to INR
       currency: body.currency,
       status: 'completed',
       paymentMethod: 'razorpay',
@@ -84,7 +84,7 @@ Your subscription is now active and will be valid until ${endDate.toLocaleDateSt
 
 Subscription Details:
 - Plan: ${body.planName}
-- Amount: ${body.amount} ${body.currency}
+- Amount: ${body.amount / 100} ${body.currency}
 - Start Date: ${startDate.toLocaleDateString()}
 - End Date: ${endDate.toLocaleDateString()}
 - Transaction ID: ${body.razorpay_payment_id}
@@ -99,7 +99,8 @@ The Job Portal Team
     return NextResponse.json({
       success: true,
       subscription,
-      payment: paymentRecord
+      payment: paymentRecord,
+      redirectUrl: '/home' // Always redirect to home page after successful payment
     });
 
   } catch (error) {

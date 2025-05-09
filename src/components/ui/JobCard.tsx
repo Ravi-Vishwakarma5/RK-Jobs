@@ -54,9 +54,19 @@ const JobCard: React.FC<JobCardProps> = ({ job }) => {
             <span className="text-sm text-gray-500">Posted {job.postedDate}</span>
             <div className="flex gap-2">
               <Button variant="outline" size="sm">Save</Button>
-              <Link href={`/jobs/${job.id}`}>
-                <Button variant="primary" size="sm">Apply</Button>
-              </Link>
+              <a href={`/jobs/${job.id}`}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    console.log(`Navigating to job detail page: /jobs/${job.id}`);
+                    // Use window.location for direct navigation
+                    window.location.href = `/jobs/${job.id}`;
+                  }}
+                >
+                  Apply
+                </Button>
+              </a>
             </div>
           </div>
         </div>

@@ -2,14 +2,21 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { logoutUser } from '@/utils/auth';
 
 const AdminSidebar: React.FC = () => {
+  const router = useRouter();
   const pathname = usePathname();
 
+  const handleLogout = () => {
+    logoutUser();
+    router.push('/admin/login');
+  };
+
   const navItems = [
-    { 
-      name: 'Dashboard', 
+    {
+      name: 'Dashboard',
       href: '/admin/dashboard',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -17,8 +24,8 @@ const AdminSidebar: React.FC = () => {
         </svg>
       )
     },
-    { 
-      name: 'Jobs', 
+    {
+      name: 'Jobs',
       href: '/admin/jobs',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -26,8 +33,8 @@ const AdminSidebar: React.FC = () => {
         </svg>
       )
     },
-    { 
-      name: 'Applications', 
+    {
+      name: 'Applications',
       href: '/admin/applications',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -35,8 +42,8 @@ const AdminSidebar: React.FC = () => {
         </svg>
       )
     },
-    { 
-      name: 'Users', 
+    {
+      name: 'Users',
       href: '/admin/users',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,15 +79,27 @@ const AdminSidebar: React.FC = () => {
         </ul>
       </nav>
       <div className="absolute bottom-0 w-64 p-6 border-t border-gray-800">
-        <Link
-          href="/"
-          className="flex items-center text-gray-300 hover:text-white"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
-          <span>Back to Website</span>
-        </Link>
+        <div className="space-y-3">
+          <button
+            onClick={handleLogout}
+            className="flex items-center w-full text-gray-300 hover:text-white"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span>Logout</span>
+          </button>
+
+          <Link
+            href="/"
+            className="flex items-center text-gray-300 hover:text-white mt-3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+            <span>Back to Website</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

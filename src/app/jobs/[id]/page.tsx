@@ -1,38 +1,228 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { jobPosts } from '@/data/jobPosts';
 import ApplicationForm from '@/components/forms/ApplicationForm';
+import PageLoading from '@/components/ui/PageLoading';
+import { isValidObjectId } from '@/app/uitlis/helpers/jobConverter';
 
 export default function JobDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const jobId = params.id as string;
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [job, setJob] = useState<typeof jobPosts[0] | null>(null);
+  const [applicationSubmitted, setApplicationSubmitted] = useState(false);
 
-  // Find the job post with the matching ID
-  const job = jobPosts.find(job => job.id === jobId);
+  // Log the job ID for debugging
+  console.log('Job Detail Page - Job ID from params:', jobId);
+  console.log('Job Detail Page - Full params:', params);
+
+  // Load job data
+  useEffect(() => {
+    const loadJob = async () => {
+      setIsLoading(true);
+      try {
+        console.log(`Fetching job with ID: ${jobId}`);
+
+        // Check if this is a MongoDB ObjectId
+        const isMongoId = isValidObjectId(jobId);
+        console.log(`Is MongoDB ObjectId: ${isMongoId}`);
+
+        // Try to fetch from main API first
+        try {
+          console.log(`Fetching from API: /api/jobs/${jobId}`);
+          const response = await fetch(`/api/jobs/${jobId}`, {
+            cache: 'no-store' // Disable caching to always get fresh data
+          });
+
+          console.log('API response status:', response.status);
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Job data received:', data);
+
+            if (data.job) {
+              console.log(`Job found: ${data.job.title} (source: ${data.source})`);
+              console.log('Job ID:', data.job.id);
+
+              // Ensure the job has an ID
+              if (!data.job.id) {
+                console.warn('Job is missing ID, adding jobId from URL params');
+                data.job.id = jobId;
+              }
+
+              // For MongoDB jobs, ensure all required fields are present
+              if (isMongoId || data.source === 'database') {
+                // Make sure the job has all the fields needed by the UI
+                if (!data.job.tags && Array.isArray(data.job.requirements)) {
+                  // Create tags from requirements if missing
+                  data.job.tags = data.job.requirements.slice(0, 4).map((req: string) => {
+                    // Extract first few words for tags
+                    return req.split(' ').slice(0, 3).join(' ');
+                  });
+                }
+
+                // Ensure description is a string
+                if (Array.isArray(data.job.description)) {
+                  data.job.description = data.job.description.join(' ');
+                }
+              }
+
+              setJob(data.job);
+              return; // Exit early if job is found
+            }
+          } else {
+            console.error('API error:', response.status);
+            // Continue to fallback
+          }
+        } catch (apiError) {
+          console.error('API fetch error:', apiError);
+          // Continue to fallback
+        }
+
+        // Try the test API endpoint as a second fallback
+        try {
+          console.log('Trying test API endpoint...');
+          const testResponse = await fetch(`/api/test-job/${jobId}`, {
+            cache: 'no-store'
+          });
+
+          console.log('Test API response status:', testResponse.status);
+
+          if (testResponse.ok) {
+            const testData = await testResponse.json();
+            console.log('Test job data received:', testData);
+
+            if (testData.job) {
+              console.log(`Job found in test API: ${testData.job.title}`);
+              console.log('Test job ID:', testData.job.id);
+
+              // Ensure the job has an ID
+              if (!testData.job.id) {
+                console.warn('Test job is missing ID, adding jobId from URL params');
+                testData.job.id = jobId;
+              }
+
+              setJob(testData.job);
+              return; // Exit early if job is found
+            }
+          } else {
+            console.error('Test API error:', testResponse.status);
+            // Continue to final fallback
+          }
+        } catch (testApiError) {
+          console.error('Test API fetch error:', testApiError);
+          // Continue to final fallback
+        }
+
+        // Fallback to static data if API fails
+        console.log('Falling back to static data');
+        const foundJob = jobPosts.find(j => j.id === jobId);
+
+        if (foundJob) {
+          console.log(`Job found in static data: ${foundJob.title}`);
+          console.log('Static job ID:', foundJob.id);
+
+          // Ensure the job has an ID
+          if (!foundJob.id) {
+            console.warn('Static job is missing ID, adding jobId from URL params');
+            foundJob.id = jobId;
+          }
+
+          setJob(foundJob);
+        } else {
+          console.error(`Job with ID ${jobId} not found in any data source`);
+
+          // Create a minimal job object with the ID from the URL
+          console.warn('Creating minimal job object with ID from URL');
+          const minimalJob = {
+            id: jobId,
+            title: 'Job Details',
+            company: 'Unknown Company',
+            location: 'Unknown Location',
+            description: 'No description available',
+            postedDate: new Date().toLocaleDateString()
+          };
+
+          setJob(minimalJob as any);
+        }
+      } catch (error) {
+        console.error('Error loading job:', error);
+        setJob(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadJob();
+  }, [jobId]);
+
+  // Handle successful application submission
+  const handleApplicationSuccess = (applicationId: string) => {
+    setApplicationSubmitted(true);
+    // Redirect to success page
+    router.push(`/jobs/${jobId}/application-success?applicationId=${applicationId}`);
+  };
+
+  // Show loading state
+  if (isLoading) {
+    return <PageLoading message="Loading job details..." />;
+  }
 
   // If job not found, show a message
   if (!job) {
+    const isMongoId = isValidObjectId(jobId);
+
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-lg px-4">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Job Not Found</h1>
           <p className="text-gray-600 mb-6">The job you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-          <Link href="/jobs">
-            <Button variant="primary">Browse All Jobs</Button>
-          </Link>
+
+          {/* Debug information */}
+          <div className="bg-gray-100 p-4 rounded-lg mb-6 text-left">
+            <p className="text-sm text-gray-700 mb-2"><strong>Debug Info:</strong></p>
+            <p className="text-sm text-gray-700 mb-1">Job ID: {jobId}</p>
+            <p className="text-sm text-gray-700 mb-1">Is MongoDB ID: {isMongoId ? 'Yes' : 'No'}</p>
+
+            {isMongoId ? (
+              <>
+                <p className="text-sm text-gray-700 mb-1">This appears to be a MongoDB ObjectId.</p>
+                <p className="text-sm text-gray-700 mb-1">Possible issues:</p>
+                <ul className="text-sm text-gray-700 list-disc pl-5 mb-1">
+                  <li>The job may have been deleted from the database</li>
+                  <li>There might be a database connection issue</li>
+                  <li>The job ID might be incorrect</li>
+                </ul>
+              </>
+            ) : (
+              <p className="text-sm text-gray-700 mb-1">Available IDs in static data: 1-8</p>
+            )}
+
+            <p className="text-sm text-gray-700">Make sure you&apos;re using a valid job ID from the home page.</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/home">
+              <Button variant="primary">Go to Home Page</Button>
+            </Link>
+            <Link href="/jobs">
+              <Button variant="outline">Browse All Jobs</Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -107,6 +297,8 @@ export default function JobDetailPage() {
                 <Button
                   variant="primary"
                   onClick={() => setShowApplicationForm(!showApplicationForm)}
+                  isLoading={applicationSubmitted}
+                  loadingText="Processing..."
                 >
                   {showApplicationForm ? 'Hide Application Form' : 'Apply Now'}
                 </Button>
@@ -158,7 +350,7 @@ export default function JobDetailPage() {
                 <p className="text-gray-700 mb-6">
                   Please fill out the form below to apply for this position.
                 </p>
-                <ApplicationForm job={job} />
+                <ApplicationForm job={job} onSuccess={handleApplicationSuccess} />
               </div>
             )}
 
@@ -173,6 +365,8 @@ export default function JobDetailPage() {
                   variant="primary"
                   size="lg"
                   onClick={() => setShowApplicationForm(true)}
+                  isLoading={applicationSubmitted}
+                  loadingText="Processing..."
                 >
                   Apply Now
                 </Button>
@@ -195,9 +389,16 @@ export default function JobDetailPage() {
                       <span className="mr-3">{similarJob.location}</span>
                       {similarJob.type && <span>{similarJob.type}</span>}
                     </div>
-                    <Link href={`/jobs/${similarJob.id}`}>
-                      <Button variant="outline" size="sm">View Job</Button>
-                    </Link>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        console.log(`Navigating to similar job: /jobs/${similarJob.id}`);
+                        window.location.href = `/jobs/${similarJob.id}`;
+                      }}
+                    >
+                      View Job
+                    </Button>
                   </div>
                 ))}
             </div>

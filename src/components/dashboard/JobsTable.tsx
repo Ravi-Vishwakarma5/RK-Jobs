@@ -15,9 +15,10 @@ interface Job {
 interface JobsTableProps {
   jobs: Job[];
   type: 'applications' | 'saved';
+  onRemove?: (jobId: string) => void;
 }
 
-const JobsTable: React.FC<JobsTableProps> = ({ jobs, type }) => {
+const JobsTable: React.FC<JobsTableProps> = ({ jobs, type, onRemove }) => {
   const statusColors = {
     applied: 'bg-blue-100 text-blue-800',
     interview: 'bg-yellow-100 text-yellow-800',
@@ -95,9 +96,29 @@ const JobsTable: React.FC<JobsTableProps> = ({ jobs, type }) => {
                 {job.date}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Link href="#" className="text-blue-600 hover:text-blue-900">
-                  View
-                </Link>
+                <div className="flex justify-end space-x-4">
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    className="text-blue-600 hover:text-blue-900"
+                    onClick={(e) => {
+                      console.log(`Navigating to job detail: /jobs/${job.id}`);
+                      // Use direct navigation to avoid routing issues
+                      e.preventDefault();
+                      window.location.href = `/jobs/${job.id}`;
+                    }}
+                  >
+                    View
+                  </Link>
+
+                  {type === 'saved' && onRemove && (
+                    <button
+                      onClick={() => onRemove(job.id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

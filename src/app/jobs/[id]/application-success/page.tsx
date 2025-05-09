@@ -3,42 +3,112 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { jobPosts } from '@/data/jobPosts';
+import { isValidObjectId } from '@/app/uitlis/helpers/jobConverter';
 
 export default function ApplicationSuccessPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const jobId = params.id as string;
   const applicationId = searchParams.get('applicationId');
+  const testMode = searchParams.get('testMode') === 'true';
 
   const [job, setJob] = useState<typeof jobPosts[0] | null>(null);
 
   useEffect(() => {
-    // Find the job post with the matching ID
-    const foundJob = jobPosts.find(j => j.id === jobId);
-    if (foundJob) {
-      setJob(foundJob);
-    }
+    const loadJob = async () => {
+      console.log(`Loading job with ID: ${jobId}`);
+
+      // Check if this is a MongoDB ObjectId
+      const isMongoId = isValidObjectId(jobId);
+      console.log(`Is MongoDB ObjectId: ${isMongoId}`);
+
+      // Try to fetch from API first
+      try {
+        console.log(`Fetching from API: /api/jobs/${jobId}`);
+        const response = await fetch(`/api/jobs/${jobId}`, {
+          cache: 'no-store' // Disable caching to always get fresh data
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Job data received:', data);
+
+          if (data.job) {
+            console.log(`Job found: ${data.job.title} (source: ${data.source})`);
+            setJob(data.job);
+            return; // Exit early if job is found
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching job from API:', error);
+      }
+
+      // Fallback to static data
+      console.log('Falling back to static data');
+      const foundJob = jobPosts.find(j => j.id === jobId);
+      if (foundJob) {
+        console.log(`Job found in static data: ${foundJob.title}`);
+        setJob(foundJob);
+      } else {
+        console.error(`Job with ID ${jobId} not found in any data source`);
+      }
+    };
+
+    loadJob();
   }, [jobId]);
 
   if (!job) {
+    const isMongoId = isValidObjectId(jobId);
+
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-lg px-4">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Job Not Found</h1>
           <p className="text-gray-600 mb-6">The job you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-          <Link href="/jobs">
-            <Button variant="primary">Browse All Jobs</Button>
-          </Link>
+
+          {/* Debug information */}
+          <div className="bg-gray-100 p-4 rounded-lg mb-6 text-left">
+            <p className="text-sm text-gray-700 mb-2"><strong>Debug Info:</strong></p>
+            <p className="text-sm text-gray-700 mb-1">Job ID: {jobId}</p>
+            <p className="text-sm text-gray-700 mb-1">Is MongoDB ID: {isMongoId ? 'Yes' : 'No'}</p>
+            <p className="text-sm text-gray-700 mb-1">Application ID: {applicationId || 'Not provided'}</p>
+
+            {isMongoId ? (
+              <>
+                <p className="text-sm text-gray-700 mb-1">This appears to be a MongoDB ObjectId.</p>
+                <p className="text-sm text-gray-700 mb-1">Possible issues:</p>
+                <ul className="text-sm text-gray-700 list-disc pl-5 mb-1">
+                  <li>The job may have been deleted from the database</li>
+                  <li>There might be a database connection issue</li>
+                  <li>The job ID might be incorrect</li>
+                </ul>
+              </>
+            ) : (
+              <p className="text-sm text-gray-700 mb-1">Available IDs in static data: 1-8</p>
+            )}
+
+            <p className="text-sm text-gray-700">Make sure you&apos;re using a valid job ID from the home page.</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/home">
+              <Button variant="primary">Go to Home Page</Button>
+            </Link>
+            <Link href="/jobs">
+              <Button variant="outline">Browse All Jobs</Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -96,9 +166,18 @@ export default function ApplicationSuccessPage() {
               </ol>
             </div>
 
-            <p className="text-sm text-gray-500 mb-8">
-              Application ID: {applicationId}
-            </p>
+            <div className="mb-8">
+              <p className="text-sm text-gray-500">
+                Application ID: {applicationId}
+              </p>
+
+              {testMode && (
+                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-100 rounded text-sm text-yellow-700">
+                  <p className="font-medium">Test Mode Application</p>
+                  <p className="text-xs mt-1">This application was submitted in test mode and is not saved to a database.</p>
+                </div>
+              )}
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/user/applications">

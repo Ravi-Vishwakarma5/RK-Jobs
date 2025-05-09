@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { JobPost } from '@/components/ui/JobCard';
+import { isValidObjectId } from '@/app/uitlis/helpers/jobConverter';
 
 interface ApplicationFormProps {
   job: JobPost;
@@ -88,37 +89,116 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ job, onSuccess }) => 
       return;
     }
 
+    // Ensure job has an ID
+    if (!job.id) {
+      setErrors(prev => ({
+        ...prev,
+        submit: 'Job ID is missing. Please try again or contact support.',
+      }));
+      return;
+    }
+
+    // Log job ID information
+    console.log('Submitting application with job ID:', job.id);
+    console.log('Is MongoDB ObjectId:', isValidObjectId(job.id));
+
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/applications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jobId: job.id,
-          ...formData,
-        }),
-      });
+      console.log('Submitting application for job:', job.id);
+      console.log('Form data:', { ...formData, resume: formData.resume ? 'File selected' : 'No file' });
 
-      const data = await response.json();
+      let response;
+      let usedFallback = false;
 
+      try {
+        // Try the main API endpoint first
+        console.log('Trying primary API endpoint...');
+        response = await fetch('/api/applications', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            jobId: job.id,
+            ...formData,
+          }),
+        });
+
+        console.log('Primary API response status:', response.status);
+      } catch (primaryError) {
+        console.error('Primary API endpoint failed:', primaryError);
+
+        // Try the fallback test endpoint
+        console.log('Trying fallback test API endpoint...');
+        response = await fetch('/api/test-application', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            jobId: job.id,
+            ...formData,
+          }),
+        });
+
+        console.log('Fallback API response status:', response.status);
+        usedFallback = true;
+      }
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Non-JSON response received:', contentType);
+        // Try to get the response text for debugging
+        const responseText = await response.text();
+        console.error('Response text (first 500 chars):', responseText.substring(0, 500));
+        throw new Error(`Server returned non-JSON response (${response.status}). Please check server logs.`);
+      }
+
+      // Parse the response
+      let data;
+      try {
+        data = await response.json();
+        console.log('Response data:', data);
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        throw new Error('Failed to parse server response. Please try again.');
+      }
+
+      // Check for error response
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit application');
+        const errorMessage = data && data.error
+          ? data.error
+          : `Server returned error (${response.status})`;
+        throw new Error(errorMessage);
+      }
+
+      // Validate the response data
+      if (!data || !data.application || !data.application.id) {
+        console.error('Invalid response data:', data);
+        throw new Error('Server returned invalid data. Please try again.');
       }
 
       // Handle success
+      console.log('Application submitted successfully:', data.application.id);
+
+      // Show a message if the fallback was used
+      if (usedFallback) {
+        alert('Your application was submitted in test mode. In a production environment, this would be saved to a database.');
+      }
+
       if (onSuccess) {
         onSuccess(data.application.id);
       } else {
-        router.push(`/jobs/${job.id}/application-success?applicationId=${data.application.id}`);
+        // Add a query parameter to indicate if the fallback was used
+        router.push(`/jobs/${job.id}/application-success?applicationId=${data.application.id}${usedFallback ? '&testMode=true' : ''}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting application:', error);
       setErrors(prev => ({
         ...prev,
-        submit: 'Failed to submit application. Please try again.',
+        submit: error.message || 'Failed to submit application. Please try again.',
       }));
     } finally {
       setIsSubmitting(false);

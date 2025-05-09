@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid subscription plan' }, { status: 400 });
     }
 
-    const amountInPaise = plan.price; // Already in paise
+    // Convert INR to paise (1 INR = 100 paise)
+    const amountInPaise = plan.price * 100;
 
     // Initialize Razorpay instance with test credentials
     const razorpay = new Razorpay({
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       amount: amountInPaise,
       currency: plan.currency,
       receipt: `receipt_${Date.now()}`,
-      payment_capture: 1,
+      payment_capture: true,
       notes: {
         planId: plan.id,
         userId,
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
         name,
         duration: plan.duration,
       },
-    });
+    }) as any;
 
     // Return order and user info
     return NextResponse.json({

@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from "next/link";
 import Button from '@/components/ui/Button';
+import { useRouter } from 'next/navigation';
+import { isAuthenticated, logout } from '@/app/uitlis/auth';
 
 // Subscription plan data
 const subscriptionPlans = [
@@ -13,7 +15,7 @@ const subscriptionPlans = [
     price: 499,
     currency: 'INR',
     features: [
-      'Apply to up to 10 jobs per month',
+      'Unlimited job applications',
       'Basic profile visibility',
       'Email notifications for new jobs',
       'Access to job search filters'
@@ -24,14 +26,15 @@ const subscriptionPlans = [
     id: 'pro',
     name: 'Professional',
     description: 'For serious job seekers looking to stand out',
-    price: 999,
+    price: 599,
     currency: 'INR',
     features: [
       'Unlimited job applications',
+      'Referrels from industry professionals',
       'Featured profile for employers',
       'Priority application processing',
       'Advanced job search filters',
-      'Resume review by experts'
+
     ],
     duration: 365,
     popular: true,
@@ -40,11 +43,11 @@ const subscriptionPlans = [
     id: 'premium',
     name: 'Premium',
     description: 'The ultimate job seeking experience',
-    price: 1499,
+    price: 699,
     currency: 'INR',
     features: [
       'All Professional features',
-      'Career coaching sessions',
+      'Resume & CV review by experts',
       'Direct messaging with employers',
       'Interview preparation resources',
       'Personalized job recommendations',
@@ -64,11 +67,10 @@ interface PlanCardProps {
 const PlanCard: React.FC<PlanCardProps> = ({ plan, onSelect, isSelected }) => {
   return (
     <div
-      className={`bg-white rounded-lg shadow-md overflow-hidden transition-all ${
-        isSelected
+      className={`bg-white rounded-lg shadow-md overflow-hidden transition-all ${isSelected
           ? 'ring-2 ring-blue-500 transform scale-[1.02]'
           : 'hover:shadow-lg'
-      }`}
+        }`}
     >
       {plan.popular && (
         <div className="bg-blue-500 text-white text-center py-1 text-sm font-medium">
@@ -193,7 +195,7 @@ const PaymentForm = ({ plan, onCancel }: { plan: SubscriptionPlan; onCancel: () 
         notes: {
           is_test: 'true',
         },
-        handler: async function(response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) {
+        handler: async function (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) {
           try {
             const verifyResponse = await fetch('/api/payment/razorpay/verify', {
               method: 'POST',
@@ -215,9 +217,38 @@ const PaymentForm = ({ plan, onCancel }: { plan: SubscriptionPlan; onCancel: () 
 
             const verifyData = await verifyResponse.json();
             if (!verifyResponse.ok) throw new Error(verifyData.error || 'Payment verification failed');
+            console.log('Payment verified successfully:', verifyData);
+
+            // Store subscription data in MongoDB
+            try {
+              console.log('Storing subscription data...');
+              const storeResponse = await fetch('/api/store', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  planId: plan.id,
+                  planName: plan.name,
+                  paymentId: response.razorpay_payment_id,
+                  amount: plan.price,
+                  email: formData.email,
+                  name: formData.name
+                }),
+              });
+
+              const storeData = await storeResponse.json();
+
+              if (!storeResponse.ok) {
+                console.error('Failed to store subscription data:', storeData.error);
+              } else {
+                console.log('Subscription data stored successfully:', storeData);
+              }
+            } catch (storeError: any) {
+              console.error('Error storing subscription data:', storeError);
+              // Continue with payment success even if storage fails
+            }
 
             window.location.href = '/payment/success';
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (error: any) {
             console.error('Verification error:', error);
             setPaymentError(error.message || 'Verification failed.');
@@ -233,7 +264,7 @@ const PaymentForm = ({ plan, onCancel }: { plan: SubscriptionPlan; onCancel: () 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const razorpay = new (window as any).Razorpay(options);
       razorpay.open();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Payment error:', error);
       setPaymentError(error.message || 'Payment failed. Try again.');
@@ -275,9 +306,8 @@ const PaymentForm = ({ plan, onCancel }: { plan: SubscriptionPlan; onCancel: () 
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.name ? 'border-red-500' : 'border-gray-300'
-            }`}
+            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.name ? 'border-red-500' : 'border-gray-300'
+              }`}
           />
           {errors.name && (
             <p className="mt-1 text-sm text-red-600">{errors.name}</p>
@@ -294,9 +324,8 @@ const PaymentForm = ({ plan, onCancel }: { plan: SubscriptionPlan; onCancel: () 
             name="email"
             value={formData.email}
             onChange={handleChange}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.email ? 'border-red-500' : 'border-gray-300'
-            }`}
+            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-500' : 'border-gray-300'
+              }`}
           />
           {errors.email && (
             <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -354,8 +383,79 @@ interface SubscriptionPlan {
 }
 
 export default function Home() {
+   const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showSubscriptionAlert, setShowSubscriptionAlert] = useState(false);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<any>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check for active subscription and authentication on page load
+  useEffect(() => {
+  const checkAuthAndRedirect = () => {
+    const loggedIn = isAuthenticated();
+    setIsLoggedIn(loggedIn);
+
+    if (loggedIn) {
+      router.push('/home');
+      return;
+    }
+
+    // If not logged in, still check for subscription alert (optional)
+    const urlParams = new URLSearchParams(window.location.search);
+    const subscriptionActive = urlParams.get('subscriptionActive');
+
+    if (subscriptionActive === 'true') {
+      const userSubscription = localStorage.getItem('userSubscription');
+      if (userSubscription) {
+        try {
+          const subscriptionData = JSON.parse(userSubscription);
+          setSubscriptionInfo(subscriptionData);
+          setShowSubscriptionAlert(true);
+
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (error) {
+          console.error('Error parsing subscription data:', error);
+        }
+      }
+    }
+  };
+
+  checkAuthAndRedirect();
+}, []);
+
+  // useEffect(() => {
+  //   // Check if user is authenticated
+  //   setIsLoggedIn(isAuthenticated());
+
+  //   // Check URL parameters for subscription alert
+  //   const urlParams = new URLSearchParams(window.location.search);
+  //   const subscriptionActive = urlParams.get('subscriptionActive');
+
+  //   if (subscriptionActive === 'true') {
+  //     // Get subscription info from localStorage
+  //     const userSubscription = localStorage.getItem('userSubscription');
+  //      router.push('/home');
+  //     if (userSubscription) {
+  //       try {
+  //         const subscriptionData = JSON.parse(userSubscription);
+  //         setSubscriptionInfo(subscriptionData);
+  //         setShowSubscriptionAlert(true);
+           
+
+  //         // Remove the query parameter from URL without refreshing the page
+  //         window.history.replaceState({}, document.title, window.location.pathname);
+  //       } catch (error) {
+  //         console.error('Error parsing subscription data:', error);
+  //       }
+  //     }
+  //   }
+  // }, []);
+
+  // // Handle logout
+  const handleLogout = () => {
+    logout();
+  };
 
   const handlePlanSelect = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
@@ -375,8 +475,48 @@ export default function Home() {
     setShowPaymentForm(false);
   };
 
+  const handleCloseAlert = () => {
+    setShowSubscriptionAlert(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+      {/* Subscription Alert */}
+      {showSubscriptionAlert && subscriptionInfo && (
+        <div className="fixed top-4 right-4 z-50 max-w-md bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg shadow-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium">Active Subscription Found!</h3>
+              <div className="mt-2 text-sm">
+                <p>Welcome back, {subscriptionInfo.userName}!</p>
+                <p>You have an active subscription with email: {subscriptionInfo.email}</p>
+                <p className="mt-1 text-xs">
+                  Valid until: {new Date(subscriptionInfo.subscriptionDetails?.endDate).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+            <div className="ml-auto pl-3">
+              <div className="-mx-1.5 -my-1.5">
+                <button
+                  onClick={handleCloseAlert}
+                  className="inline-flex bg-green-50 rounded-md p-1.5 text-green-500 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                  <span className="sr-only">Dismiss</span>
+                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPaymentForm ? (
         <div className="max-w-3xl mx-auto px-4 py-12">
           <PaymentForm plan={selectedPlan!} onCancel={handleCancelPayment} />
@@ -399,6 +539,18 @@ export default function Home() {
                       View Subscription Plans
                     </Button>
                   </Link>
+
+                  {isLoggedIn ? (
+                    <Button variant="outline" size="lg" onClick={handleLogout}>
+                      Logout
+                    </Button>
+                  ) : (
+                    <Link href="/login">
+                      <Button variant="outline" size="lg">
+                        Login with Subscription Email
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
@@ -486,6 +638,15 @@ export default function Home() {
                   </Button>
                 </div>
               )}
+
+              <div className="text-center mt-8 pt-8 border-t border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Already have a subscription?</h3>
+                <Link href="/login">
+                  <Button variant="outline" size="lg">
+                    Login with Subscription Email
+                  </Button>
+                </Link>
+              </div>
             </div>
           </section>
 

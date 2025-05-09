@@ -9,7 +9,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     price: 499,
     currency: 'INR',
     features: [
-      'Apply to up to 10 jobs per month',
+      'Unlimited job applications',
       'Basic profile visibility',
       'Email notifications for new jobs',
       'Access to job search filters'
@@ -20,14 +20,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     id: 'pro',
     name: 'Professional',
     description: 'For serious job seekers looking to stand out',
-    price: 999,
+    price: 599,
     currency: 'INR',
     features: [
       'Unlimited job applications',
+      'Referrals from industry professionals',
       'Featured profile for employers',
       'Priority application processing',
       'Advanced job search filters',
-      'Resume review by experts'
     ],
     duration: 365,
     popular: true,
@@ -36,11 +36,11 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     id: 'premium',
     name: 'Premium',
     description: 'The ultimate job seeking experience',
-    price: 1499,
+    price: 699,
     currency: 'INR',
     features: [
       'All Professional features',
-      'Career coaching sessions',
+      'Resume & CV review by experts',
       'Direct messaging with employers',
       'Interview preparation resources',
       'Personalized job recommendations',
@@ -85,14 +85,56 @@ export function getSubscriptionPlanById(planId: string): SubscriptionPlan | unde
 
 // Function to get a user's active subscription
 export function getUserActiveSubscription(userId: string): UserSubscription | undefined {
-  return userSubscriptions.find(
+  // First check in-memory subscriptions
+  const dbSubscription = userSubscriptions.find(
     sub => sub.userId === userId && sub.status === 'active'
   );
+
+  if (dbSubscription) {
+    return dbSubscription;
+  }
+
+  // If no in-memory subscription found, check localStorage
+  // This is for demo purposes only - in a real app, this would be a server-side check
+  if (typeof window !== 'undefined') {
+    const hasActiveSubscription = localStorage.getItem('hasActiveSubscription');
+
+    if (hasActiveSubscription === 'true') {
+      // Create a mock subscription for demo purposes
+      const mockSubscription: UserSubscription = {
+        id: 'mock-subscription',
+        userId: userId,
+        planId: 'premium',
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'active',
+        paymentId: 'mock-payment'
+      };
+
+      return mockSubscription;
+    }
+  }
+
+  return undefined;
 }
 
 // Function to check if a user has an active subscription
 export function hasActiveSubscription(userId: string): boolean {
-  return userSubscriptions.some(
+  // First check in-memory subscriptions
+  const hasDbSubscription = userSubscriptions.some(
     sub => sub.userId === userId && sub.status === 'active'
   );
+
+  if (hasDbSubscription) {
+    return true;
+  }
+
+  // If no in-memory subscription found, check localStorage
+  // This is for demo purposes only - in a real app, this would be a server-side check
+  if (typeof window !== 'undefined') {
+    const hasActiveSubscription = localStorage.getItem('hasActiveSubscription');
+    return hasActiveSubscription === 'true';
+  }
+
+  return false;
 }

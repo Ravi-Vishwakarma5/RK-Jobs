@@ -1,9 +1,89 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/dashboard/Header';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import { isAuthenticated, getAuthToken, logout } from '@/app/uitlis/auth';
+import { decodeToken } from '@/app/uitlis/jwt';
+
+interface UserData {
+  name: string;
+  email: string;
+  subscriptionId: string;
+  hasActiveSubscription: boolean;
+  iat: number;
+  exp: number;
+}
 
 export default function ProfilePage() {
+  const router = useRouter();
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+
+    // Get and decode the JWT token
+    const token = getAuthToken();
+    if (token) {
+      const decoded = decodeToken(token) as UserData;
+      setUserData(decoded);
+
+      // Get subscription info from localStorage
+      const userSubscription = localStorage.getItem('userSubscription');
+      if (userSubscription) {
+        try {
+          const subscriptionData = JSON.parse(userSubscription);
+          setSubscriptionInfo(subscriptionData);
+        } catch (error) {
+          console.error('Error parsing subscription data:', error);
+        }
+      }
+    }
+
+    setIsLoading(false);
+  }, [router]);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-600 mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-700">Loading profile...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userData) {
+    return null; // Will redirect in useEffect
+  }
+
+  // Calculate token expiration
+  const tokenExpiration = new Date(userData.exp * 1000);
+  const now = new Date();
+  const minutesRemaining = Math.max(0, Math.floor((tokenExpiration.getTime() - now.getTime()) / (1000 * 60)));
+
+  // Get user initials for avatar
+  const initials = userData.name
+    .split(' ')
+    .map(name => name[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+
   return (
     <div>
       <Header title="Profile" />
@@ -12,46 +92,66 @@ export default function ProfilePage() {
           <Card className="mb-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center">
-                <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center text-xl font-medium">
-                  JD
+                <div className="h-16 w-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xl font-medium">
+                  {initials}
                 </div>
                 <div className="ml-4">
-                  <h2 className="text-xl font-medium text-gray-900">John Doe</h2>
-                  <p className="text-gray-500">Frontend Developer</p>
+                  <h2 className="text-xl font-medium text-gray-900">{userData.name}</h2>
+                  <p className="text-gray-500">{userData.email}</p>
                 </div>
               </div>
-              <Button variant="outline">Edit Profile</Button>
+              <Button variant="outline" onClick={handleLogout}>Logout</Button>
             </div>
           </Card>
 
-          <Card className="mb-6" title="Personal Information">
+          <Card className="mb-6" title="Account Information">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                <p className="mt-1 text-gray-900">John Doe</p>
+                <p className="mt-1 text-gray-900">{userData.name}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Email</label>
-                <p className="mt-1 text-gray-900">john.doe@example.com</p>
+                <p className="mt-1 text-gray-900">{userData.email}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Phone</label>
-                <p className="mt-1 text-gray-900">+1 (555) 123-4567</p>
+                <label className="block text-sm font-medium text-gray-700">Subscription ID</label>
+                <p className="mt-1 text-gray-900 text-sm break-all">{userData.subscriptionId}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Location</label>
-                <p className="mt-1 text-gray-900">New York, NY</p>
+                <label className="block text-sm font-medium text-gray-700">Subscription Status</label>
+                <p className="mt-1">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Active
+                  </span>
+                </p>
               </div>
             </div>
           </Card>
 
-          <Card className="mb-6" title="Professional Summary">
-            <p className="text-gray-700">
-              Experienced Frontend Developer with 5+ years of experience building responsive and
-              user-friendly web applications. Proficient in React, TypeScript, and modern CSS
-              frameworks. Passionate about creating intuitive user interfaces and optimizing web
-              performance.
-            </p>
+          <Card className="mb-6" title="Authentication Status">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Session Expires In</label>
+                <p className="mt-1 text-gray-900">{minutesRemaining} minutes</p>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                  <div
+                    className="bg-blue-600 h-2.5 rounded-full"
+                    style={{ width: `${Math.min(100, (minutesRemaining / 60) * 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Token Expiration</label>
+                <p className="mt-1 text-gray-900">{tokenExpiration.toLocaleString()}</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">JWT Token</label>
+                <p className="mt-1 text-xs text-gray-500 break-all bg-gray-50 p-2 rounded">
+                  {getAuthToken() || 'No token found'}
+                </p>
+              </div>
+            </div>
           </Card>
 
           <Card className="mb-6" title="Skills">
@@ -96,13 +196,38 @@ export default function ProfilePage() {
             </div>
           </Card>
 
-          <Card title="Education">
-            <div>
-              <div className="flex justify-between">
-                <h3 className="text-lg font-medium text-gray-900">Bachelor of Science in Computer Science</h3>
-                <span className="text-sm text-gray-500">2015 - 2019</span>
+          <Card title="Subscription Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Plan</label>
+                <p className="mt-1 text-gray-900">
+                  {subscriptionInfo?.subscriptionDetails?.planName || 'Premium'}
+                </p>
               </div>
-              <p className="text-gray-700">University of Technology</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                <p className="mt-1 text-gray-900">
+                  {subscriptionInfo?.subscriptionDetails?.startDate
+                    ? new Date(subscriptionInfo.subscriptionDetails.startDate).toLocaleDateString()
+                    : new Date().toLocaleDateString()}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">End Date</label>
+                <p className="mt-1 text-gray-900">
+                  {subscriptionInfo?.subscriptionDetails?.endDate
+                    ? new Date(subscriptionInfo.subscriptionDetails.endDate).toLocaleDateString()
+                    : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Days Remaining</label>
+                <p className="mt-1 text-gray-900">
+                  {subscriptionInfo?.subscriptionDetails?.endDate
+                    ? Math.max(0, Math.floor((new Date(subscriptionInfo.subscriptionDetails.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                    : 365} days
+                </p>
+              </div>
             </div>
           </Card>
         </div>
