@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import Button from '@/components/ui/Button';
-import { loginUser, getCurrentUser } from '@/utils/auth';
+import FormLoader from '@/components/ui/FormLoader';
+import { getCurrentUser } from '@/app/uitlis/auth';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -17,11 +17,44 @@ export default function AdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Check if user is already logged in
+  // Check if user is already logged in as admin
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user && user.role === 'admin') {
-      router.push('/admin/dashboard');
+    try {
+      // Check if token exists and is valid
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        // No token, stay on login page
+        return;
+      }
+
+      // Check if token is expired
+      try {
+        const decodedToken = JSON.parse(atob(token.split('.')[1]));
+        const isExpired = decodedToken.exp * 1000 < Date.now();
+
+        if (isExpired) {
+          // Token is expired, clear it and stay on login page
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('currentUser');
+          return;
+        }
+      } catch (tokenError) {
+        console.error('Error decoding token:', tokenError);
+        // Invalid token format, clear it and stay on login page
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        return;
+      }
+
+      // Check if user exists and is admin
+      const user = getCurrentUser();
+      if (user && user.isAdmin) {
+        console.log('User is already logged in as admin, redirecting to dashboard');
+        router.push('/admin/dashboard');
+      }
+    } catch (error) {
+      console.error('Error checking admin authentication:', error);
+      // On error, stay on login page
     }
   }, [router]);
 
@@ -74,18 +107,8 @@ export default function AdminLoginPage() {
     setLoginError(null);
 
     try {
-      // First try the client-side mock authentication
-      const user = await loginUser({
-        email: formData.email,
-        password: formData.password,
-      });
+      console.log('Attempting admin login with:', formData.email);
 
-      if (user) {
-        router.push('/admin/dashboard');
-        return;
-      }
-
-      // If client-side auth fails, try the API
       const response = await fetch('/api/admin/login', {
         method: 'POST',
         headers: {
@@ -97,35 +120,98 @@ export default function AdminLoginPage() {
         }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+        console.log('API login response status:', response.status, 'success:', data.success);
+      } catch (jsonError) {
+        console.error('Error parsing response:', jsonError);
+        setLoginError('Invalid response from server. Please try again.');
+        return;
+      }
 
       if (response.ok && data.success) {
-        // Store user in localStorage
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
-        router.push('/admin/dashboard');
+        try {
+          // Store token and user in localStorage
+          if (data.token) {
+            console.log('Storing auth token');
+            localStorage.setItem('authToken', data.token);
+          } else {
+            console.warn('No token received from server');
+            setLoginError('Authentication error: No token received');
+            return;
+          }
+
+          if (data.user) {
+            // Add isAdmin flag to user data
+            const userData = {
+              ...data.user,
+              isAdmin: true
+            };
+            console.log('Storing admin user data');
+            localStorage.setItem('currentUser', JSON.stringify(userData));
+          } else {
+            console.warn('No user data received from server');
+            setLoginError('Authentication error: No user data received');
+            return;
+          }
+
+          console.log('Admin login successful, redirecting to dashboard');
+          router.push('/admin/dashboard');
+        } catch (storageError) {
+          console.error('Error storing auth data:', storageError);
+          setLoginError('Error storing authentication data. Please try again.');
+        }
       } else {
         setLoginError(data.error || 'Invalid email or password');
       }
     } catch (error) {
       console.error('Login error:', error);
-      setLoginError('An error occurred during login');
+      setLoginError('An error occurred during login. Please check your network connection and try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // If loading, show the form loader
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="flex justify-center">
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
+                <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z" />
+              </svg>
+              <span className="text-2xl font-bold text-gray-900">Sarthak Consultancy</span>
+            </div>
+          </div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Admin Login
+          </h2>
+        </div>
+
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+            <FormLoader fields={2} message="Logging in..." />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <Image
-            className="dark:invert"
-            src="/next.svg"
-            alt="Job Portal Logo"
-            width={120}
-            height={30}
-            priority
-          />
+          <div className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
+              <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z" />
+            </svg>
+            <span className="text-2xl font-bold text-gray-900">Sarthak Consultancy</span>
+          </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Admin Login
@@ -133,9 +219,10 @@ export default function AdminLoginPage() {
         <p className="mt-2 text-center text-sm text-gray-600">
           Or{' '}
           <Link href="/admin/register" className="font-medium text-blue-600 hover:text-blue-500">
-            register a new admin account
+            Register a new admin account
           </Link>
         </p>
+       
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

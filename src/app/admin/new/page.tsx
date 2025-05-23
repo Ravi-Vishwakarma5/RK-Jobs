@@ -8,6 +8,7 @@ export default function CreateJobPage() {
     company: 'TechCorp',
     location: 'San Francisco, CA',
     jobType: 'Part-Remote',
+    category: 'Technology',
     salary: '$120,000 - $150,000',
     logo: '',
     description: [
@@ -83,7 +84,7 @@ export default function CreateJobPage() {
 
     try {
       // Validate form data
-      const requiredFields = ['title', 'company', 'location', 'jobType', 'salary'];
+      const requiredFields = ['title', 'company', 'location', 'jobType', 'category', 'salary'];
       for (const field of requiredFields) {
         if (!form[field as keyof typeof form]) {
           throw new Error(`${field.charAt(0).toUpperCase() + field.slice(1)} is required`);
@@ -193,25 +194,28 @@ export default function CreateJobPage() {
     }
   };
 
-  const renderClearableInput = (name: keyof typeof form, placeholder: string) => (
-    <div className="relative">
-      <input
-        type="text"
-        name={name}
-        value={form[name] as string}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className="w-full p-2 pr-10 border rounded"
-      />
-      {(form[name] as string) && (
-        <button
-          type="button"
-          onClick={() => clearField(name)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-        >
-          ❌
-        </button>
-      )}
+  const renderClearableInput = (name: keyof typeof form, label: string, placeholder: string) => (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          name={name}
+          value={form[name] as string}
+          onChange={handleChange}
+          placeholder={placeholder}
+          className="w-full p-2 pr-10 border rounded"
+        />
+        {(form[name] as string) && (
+          <button
+            type="button"
+            onClick={() => clearField(name)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+          >
+            ❌
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -281,24 +285,55 @@ export default function CreateJobPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {renderClearableInput('title', 'Job Title')}
-        {renderClearableInput('company', 'Company Name')}
-        {renderClearableInput('location', 'Location')}
-        {renderClearableInput('salary', 'Salary Range')}
-        {renderClearableInput('logo', 'Logo URL (optional)')}
+        {renderClearableInput('title', 'Job Title', 'Enter job title')}
+        {renderClearableInput('company', 'Company Name', 'Enter company name')}
+        {renderClearableInput('location', 'Location', 'Enter job location')}
+        {renderClearableInput('salary', 'Salary Range', 'e.g. $50,000 - $70,000')}
+        {renderClearableInput('logo', 'Logo URL', 'Enter company logo URL (optional)')}
 
-        <select
-          name="jobType"
-          value={form.jobType}
-          onChange={handleChange}
-          className="w-full p-2 border rounded"
-        >
-          <option value="Full-time">Full-time</option>
-          <option value="Part-time">Part-time</option>
-          <option value="Remote">Remote</option>
-          <option value="Part-Remote">Part-Remote</option>
-          <option value="Contract">Contract</option>
-        </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
+            <select
+              name="jobType"
+              value={form.jobType}
+              onChange={handleChange}
+              className="w-full p-2 border rounded"
+            >
+              <option value="Full-time">Full-time</option>
+              <option value="Part-time">Part-time</option>
+              <option value="Remote">Remote</option>
+              <option value="Part-Remote">Part-Remote</option>
+              <option value="Contract">Contract</option>
+              <option value="Internship">Internship</option>
+              <option value="Freelance">Freelance</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <select
+              name="category"
+              value={form.category}
+              onChange={handleChange}
+              className="w-full p-2 border rounded"
+            >
+              <option value="Technology">Technology</option>
+              <option value="Design">Design</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Sales">Sales</option>
+              <option value="Customer Service">Customer Service</option>
+              <option value="Finance">Finance</option>
+              <option value="Healthcare">Healthcare</option>
+              <option value="Education">Education</option>
+              <option value="Engineering">Engineering</option>
+              <option value="Human Resources">Human Resources</option>
+              <option value="Legal">Legal</option>
+              <option value="Administrative">Administrative</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
 
         {['description', 'requirements', 'responsibilities', 'benefits'].map((field) => (
           <div key={field}>

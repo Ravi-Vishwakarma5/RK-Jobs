@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/dashboard/Header';
 import JobsTable from '@/components/dashboard/JobsTable';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
+import { isAuthenticated, getAuthToken } from '@/app/uitlis/auth';
 
 // Interface for application data
 interface Application {
@@ -56,6 +58,7 @@ const mapStatus = (status: Application['status']): 'applied' | 'interview' | 're
 };
 
 export default function ApplicationsPage() {
+  const router = useRouter();
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +66,11 @@ export default function ApplicationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    // Set a mock active subscription for testing
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hasActiveSubscription', 'true');
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
+      console.log('User not authenticated, redirecting to login');
+      router.push('/login');
+      return;
     }
 
     const fetchApplications = async () => {
@@ -73,19 +78,50 @@ export default function ApplicationsPage() {
         setIsLoading(true);
         console.log('Fetching applications from API...');
 
+        // Get auth token
+        const token = getAuthToken();
+        if (!token) {
+          console.error('No authentication token found');
+          throw new Error('Authentication required');
+        }
+
         try {
-          const response = await fetch('/api/user/applications');
+          console.log('Making authenticated API request...');
+          const response = await fetch('/api/user/applications', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
           console.log('API response status:', response.status);
 
           if (!response.ok) {
+            console.error(`API error: ${response.status} ${response.statusText}`);
             throw new Error(`Failed to fetch applications: ${response.status}`);
+          }
+
+          // Check if response is JSON
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            console.error('Non-JSON response received:', contentType);
+            throw new Error('Server returned non-JSON response');
           }
 
           const data = await response.json();
           console.log('Applications data received:', data);
-          setApplications(data.applications || []);
+
+          if (data.applications && Array.isArray(data.applications)) {
+            setApplications(data.applications);
+          } else {
+            console.warn('No applications array in response or empty applications array');
+            setApplications([]);
+          }
         } catch (fetchError) {
           console.error('API fetch error:', fetchError);
+          if (fetchError instanceof Error) {
+            console.error('Error details:', fetchError.message);
+            console.error('Error stack:', fetchError.stack);
+          }
 
           // Use mock data as fallback
           console.log('Using mock application data as fallback');
@@ -135,7 +171,7 @@ export default function ApplicationsPage() {
     };
 
     fetchApplications();
-  }, []);
+  }, [router]);
 
   // Filter applications based on active filter and search query
   const filteredApplications = applications.filter(app => {

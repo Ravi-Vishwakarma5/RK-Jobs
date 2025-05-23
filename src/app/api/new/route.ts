@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       company,
       location,
       jobType,
+      category,
       salary,
       logo,
       description,
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
     if (!company) missingFields.push('company');
     if (!location) missingFields.push('location');
     if (!jobType) missingFields.push('jobType');
+    if (!category) missingFields.push('category');
     if (!salary) missingFields.push('salary');
 
     if (missingFields.length > 0) {
@@ -122,6 +124,7 @@ export async function POST(request: Request) {
         company: company.trim(),
         location: location.trim(),
         jobType: jobType.trim(),
+        category: category.trim(),
         salary: salary.trim(),
         logo: logo ? logo.trim() : '',
         description: ensureArray(description),

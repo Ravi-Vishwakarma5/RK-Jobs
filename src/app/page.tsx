@@ -390,12 +390,11 @@ export default function Home() {
   const [subscriptionInfo, setSubscriptionInfo] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Check for active subscription and authentication on page load
+// Check for active subscription and authentication on page load
   useEffect(() => {
   const checkAuthAndRedirect = () => {
     const loggedIn = isAuthenticated();
     setIsLoggedIn(loggedIn);
-
     if (loggedIn) {
       router.push('/home');
       return;
@@ -454,7 +453,10 @@ export default function Home() {
 
   // // Handle logout
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('authToken');
+    
+    router.push('/');
+    // logout();
   };
 
   const handlePlanSelect = (plan: SubscriptionPlan) => {
@@ -640,7 +642,7 @@ export default function Home() {
               )}
 
               <div className="text-center mt-8 pt-8 border-t border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Already have a subscription?</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4"> If you have a Already subscription?</h3>
                 <Link href="/login">
                   <Button variant="outline" size="lg">
                     Login with Subscription Email

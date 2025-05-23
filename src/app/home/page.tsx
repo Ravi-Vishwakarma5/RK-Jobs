@@ -7,6 +7,9 @@ import JobCard, { JobPost } from "@/components/ui/JobCard";
 import { jobPosts } from "@/data/jobPosts";
 import Button from "@/components/ui/Button";
 import PageLoading from "@/components/ui/PageLoading";
+import CardLoader from "@/components/ui/CardLoader";
+import Header from '@/components/ui/Header';
+import Footer from '@/components/ui/Footer';
 
 // Define the job interface based on the MongoDB model
 interface MongoJob {
@@ -43,8 +46,54 @@ const convertToJobCardFormat = (job: MongoJob): JobPost => {
 
 export default function Home() {
   const [newJobs, setNewJobs] = useState<JobPost[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<JobPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
+
+  // Filter jobs based on search term, location, and category
+  useEffect(() => {
+    if (newJobs.length > 0) {
+      let filtered = [...newJobs];
+
+      // Filter by search term
+      if (searchTerm) {
+        filtered = filtered.filter(job =>
+          (typeof job.title === 'string' ? job.title.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
+          (typeof job.company === 'string' ? job.company.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
+          (typeof job.description === 'string' ? job.description.toLowerCase().includes(searchTerm.toLowerCase()) : false)
+        );
+      }
+
+      // Filter by location
+      if (locationFilter) {
+        filtered = filtered.filter(job =>
+          typeof job.location === 'string' ? job.location.toLowerCase().includes(locationFilter.toLowerCase()) : false
+        );
+      }
+
+      // Filter by category
+      if (activeCategory !== 'All') {
+        filtered = filtered.filter(job => {
+          // Check if job has tags and if any tag matches the category
+          if (job.tags && Array.isArray(job.tags) && job.tags.length > 0) {
+            return job.tags.some(tag =>
+              typeof tag === 'string' && tag.toLowerCase().includes(activeCategory.toLowerCase())
+            );
+          }
+          // If no tags, check job title or type
+          return (typeof job.title === 'string' && job.title.toLowerCase().includes(activeCategory.toLowerCase())) ||
+                 (typeof job.type === 'string' && job.type.toLowerCase().includes(activeCategory.toLowerCase()));
+        });
+      }
+
+      setFilteredJobs(filtered);
+    } else {
+      setFilteredJobs([]);
+    }
+  }, [newJobs, searchTerm, locationFilter, activeCategory]);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -89,12 +138,14 @@ export default function Home() {
               : data.jobs; // Static data is already in the right format
 
             setNewJobs(formattedJobs);
+            setFilteredJobs(formattedJobs);
             console.log('Jobs processed successfully:', formattedJobs.length);
             console.log('Data source:', data.source || 'unknown');
           } else {
             console.warn('No jobs array in response or empty jobs array');
             // Still set empty array to show fallback data
             setNewJobs([]);
+            setFilteredJobs([]);
           }
         } catch (fetchError: any) {
           clearTimeout(timeoutId);
@@ -116,6 +167,7 @@ export default function Home() {
               if (fallbackData.jobs && Array.isArray(fallbackData.jobs)) {
                 const formattedJobs = fallbackData.jobs.map(convertToJobCardFormat);
                 setNewJobs(formattedJobs);
+                setFilteredJobs(formattedJobs);
                 console.log('Jobs fetched from first fallback endpoint:', formattedJobs.length);
               } else {
                 throw new Error('No jobs found in first fallback response');
@@ -139,6 +191,7 @@ export default function Home() {
                 if (testData.jobs && Array.isArray(testData.jobs)) {
                   // Static data is already in the right format
                   setNewJobs(testData.jobs);
+                  setFilteredJobs(testData.jobs);
                   console.log('Jobs fetched from test endpoint:', testData.jobs.length);
                 } else {
                   throw new Error('No jobs found in test endpoint response');
@@ -158,6 +211,7 @@ export default function Home() {
         setError(`Failed to load jobs: ${err.message || 'Unknown error'}`);
         // Still set empty array to show fallback data
         setNewJobs([]);
+        setFilteredJobs([]);
       } finally {
         setIsLoading(false);
       }
@@ -169,61 +223,40 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Image
-              className="dark:invert"
-              src="/next.svg"
-              alt="Job Portal Logo"
-              width={120}
-              height={30}
-              priority
-            />
-            <nav className="ml-10 space-x-8 hidden md:flex">
-              <Link href="/" className="text-blue-600 font-medium">Home</Link>
-              <Link href="/jobs" className="text-gray-500 hover:text-gray-900">Browse Jobs</Link>
-              <Link href="/companies" className="text-gray-500 hover:text-gray-900">Companies</Link>
-              <Link href="/about" className="text-gray-500 hover:text-gray-900">About</Link>
-            </nav>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/user"
-              className="rounded-full bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              User Dashboard
-            </Link>
-            <Link
-              href="/admin/login"
-              className="rounded-full bg-gray-600 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors"
-            >
-              Admin Login
-            </Link>
-          </div>
-        </div>
-      </header>
 
+         <Header />
       {/* Hero Section */}
-      <section className="bg-blue-700 text-white py-16">
+      <section className="bg-blue-700 text-white py-10 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
-            <h1 className="text-4xl font-bold mb-4">Find Your Dream Job Today</h1>
-            <p className="text-xl mb-8">Browse thousands of job listings and find the perfect match for your skills and experience.</p>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-4">Find Your Dream Job Today</h1>
+            <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8">Browse thousands of job listings and find the perfect match for your skills and experience.</p>
 
-            <div className="bg-white rounded-lg p-4 shadow-lg">
-              <div className="flex flex-col md:flex-row gap-4">
+            <div className="bg-white rounded-lg p-3 sm:p-4 shadow-lg">
+              <div className="flex flex-col gap-3 sm:gap-4">
                 <input
                   type="text"
                   placeholder="Job title, keywords, or company"
-                  className="flex-1 px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm sm:text-base"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 <input
                   type="text"
                   placeholder="Location"
-                  className="flex-1 px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm sm:text-base"
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
                 />
-                <Button variant="primary" size="lg">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  onClick={() => {
+                    // Scroll to job listings section
+                    document.getElementById('job-listings')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
                   Search Jobs
                 </Button>
               </div>
@@ -233,24 +266,69 @@ export default function Home() {
       </section>
 
       {/* Job Listings */}
-      <section className="py-12">
+      <section id="job-listings" className="py-8 sm:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">Latest Job Postings</h2>
-            <Link href="/jobs" className="text-blue-600 hover:text-blue-800 font-medium">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0 mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Latest Job Postings</h2>
+            <Link href="/jobs" className="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base">
               View all jobs →
             </Link>
           </div>
 
+          {/* Category filters */}
+          <div className="mb-6 sm:mb-8 overflow-x-auto">
+            <div className="flex space-x-2 pb-2 min-w-max">
+              <Button
+                variant={activeCategory === 'All' ? 'secondary' : 'outline'}
+                size="sm"
+                className="text-xs sm:text-sm whitespace-nowrap"
+                onClick={() => setActiveCategory('All')}
+              >
+                All
+              </Button>
+              {['Technology', 'Design', 'Marketing', 'Sales', 'Finance', 'Healthcare', 'Remote'].map((category) => (
+                <Button
+                  key={category}
+                  variant={activeCategory === category ? 'secondary' : 'outline'}
+                  size="sm"
+                  className="text-xs sm:text-sm whitespace-nowrap"
+                  onClick={() => setActiveCategory(category)}
+                >
+                  {category}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {isLoading ? (
-            <PageLoading message="Loading job listings..." />
+            <CardLoader count={6} message="Loading job listings..." />
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded mb-4 sm:mb-6 text-sm">
               {error}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {newJobs.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {filteredJobs.length > 0 ? (
+                filteredJobs.map((job) => (
+                  <JobCard key={job.id} job={job} />
+                ))
+              ) : searchTerm || locationFilter || activeCategory !== 'All' ? (
+                <div className="col-span-1 sm:col-span-2 lg:col-span-3 py-6 sm:py-8 text-center">
+                  <p className="text-gray-500 text-sm sm:text-base mb-3 sm:mb-4">No jobs found matching your search criteria.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs sm:text-sm"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setLocationFilter('');
+                      setActiveCategory('All');
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              ) : newJobs.length > 0 ? (
                 newJobs.map((job) => (
                   <JobCard key={job.id} job={job} />
                 ))
@@ -263,29 +341,53 @@ export default function Home() {
             </div>
           )}
 
-          <div className="mt-12 text-center">
+          <div className="mt-8 sm:mt-12 text-center">
             <Button
               variant="outline"
-              size="lg"
+              size="md"
+              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
               isLoading={isLoading}
               loadingText="Loading Jobs..."
+              onClick={() => {
+                // Scroll to top of job listings
+                document.getElementById('job-listings')?.scrollIntoView({ behavior: 'smooth' });
+
+                // Clear filters to show all jobs
+                setSearchTerm('');
+                setLocationFilter('');
+                setActiveCategory('All');
+              }}
             >
-              Load More Jobs
+              {searchTerm || locationFilter || activeCategory !== 'All'
+                ? 'Clear Filters'
+                : 'Load More Jobs'}
             </Button>
           </div>
         </div>
       </section>
 
       {/* Categories Section */}
-      <section className="py-12 bg-gray-100">
+      <section className="py-8 sm:py-12 bg-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Browse Jobs by Category</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6 sm:mb-8 text-center">Browse Jobs by Category</h2>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {['Technology', 'Design', 'Marketing', 'Sales', 'Customer Service', 'Finance', 'Healthcare', 'Education'].map((category) => (
-              <div key={category} className="bg-white rounded-lg shadow-md p-6 text-center hover:shadow-lg transition-shadow">
-                <h3 className="font-medium text-lg mb-2">{category}</h3>
-                <p className="text-gray-500 text-sm">{Math.floor(Math.random() * 100) + 20} jobs available</p>
+              <div
+                key={category}
+                className="bg-white rounded-lg shadow-md p-4 sm:p-6 text-center hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => {
+                  setActiveCategory(category);
+                  document.getElementById('job-listings')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                <h3 className="font-medium text-base sm:text-lg mb-1 sm:mb-2">{category}</h3>
+                <p className="text-gray-500 text-xs sm:text-sm">
+                  {newJobs.filter(job =>
+                    (typeof job.title === 'string' && job.title.toLowerCase().includes(category.toLowerCase())) ||
+                    (job.tags && Array.isArray(job.tags) && job.tags.some(tag => typeof tag === 'string' && tag.toLowerCase().includes(category.toLowerCase())))
+                  ).length || Math.floor(Math.random() * 100) + 20} jobs available
+                </p>
               </div>
             ))}
           </div>
@@ -293,45 +395,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Job Portal</h3>
-              <p className="text-gray-400">Find your dream job or hire the perfect candidate with our comprehensive job portal.</p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">For Job Seekers</h3>
-              <ul className="space-y-2">
-                <li><Link href="#" className="text-gray-400 hover:text-white">Browse Jobs</Link></li>
-                <li><Link href="#" className="text-gray-400 hover:text-white">Create Resume</Link></li>
-                <li><Link href="#" className="text-gray-400 hover:text-white">Job Alerts</Link></li>
-                <li><Link href="#" className="text-gray-400 hover:text-white">Career Advice</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">For Employers</h3>
-              <ul className="space-y-2">
-                <li><Link href="#" className="text-gray-400 hover:text-white">Post a Job</Link></li>
-                <li><Link href="#" className="text-gray-400 hover:text-white">Browse Resumes</Link></li>
-                <li><Link href="#" className="text-gray-400 hover:text-white">Recruiting Solutions</Link></li>
-                <li><Link href="#" className="text-gray-400 hover:text-white">Pricing Plans</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
-              <ul className="space-y-2">
-                <li className="text-gray-400">Email: info@jobportal.com</li>
-                <li className="text-gray-400">Phone: (123) 456-7890</li>
-                <li className="text-gray-400">Address: 123 Main St, City, Country</li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>© 2025 Job Portal. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

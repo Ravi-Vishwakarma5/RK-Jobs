@@ -31,16 +31,26 @@ export async function POST(request: NextRequest) {
 
     // Define the subscription schema
     const subscriptionSchema = new mongoose.Schema({
-      name: String,
+      fullName: String,
       email: String,
       paymentId: String,
       amount: Number,
-      planId: String,
-      planName: String,
+      plan: String,
       status: String,
       startDate: Date,
       endDate: Date,
       createdAt: Date
+    });
+
+    // Define the user schema
+    const userSchema = new mongoose.Schema({
+      name: String,
+      email: String,
+      password: String,
+      role: String,
+      createdAt: Date,
+      lastLogin: Date,
+      hasActiveSubscription: Boolean
     });
 
     // Create or get the subscription model
@@ -51,6 +61,16 @@ export async function POST(request: NextRequest) {
     } catch (e) {
       SubscriptionModel = mongoose.model('Subscription', subscriptionSchema);
       console.log('Created new Subscription model');
+    }
+
+    // Create or get the user model
+    let UserModel;
+    try {
+      UserModel = mongoose.model('User');
+      console.log('Using existing User model');
+    } catch (e) {
+      UserModel = mongoose.model('User', userSchema);
+      console.log('Created new User model');
     }
 
     // Find subscription by email
@@ -72,16 +92,50 @@ export async function POST(request: NextRequest) {
 
     console.log('Active subscription found:', subscription._id);
 
+    // Check if user exists in the users collection
+    let user = await (UserModel as any).findOne({ email: email });
+
+    // If user doesn't exist, create a basic user record
+    if (!user) {
+      console.log('User not found in users collection, creating new user record');
+      const newUser = {
+        name: subscription.fullName || subscription.name,
+        email: email,
+        role: 'user',
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        hasActiveSubscription: true,
+        // No password - user will need to register to set a password
+      };
+
+      user = new (UserModel as any)(newUser);
+      await user.save();
+      console.log('Created new user record:', user._id);
+    } else {
+      // Update last login time and subscription status
+      console.log('User found in users collection, updating last login time');
+      user.lastLogin = new Date();
+      user.hasActiveSubscription = true;
+      await user.save();
+    }
+
     // Generate JWT token
     const userData = {
-      name: subscription.name,
-      email: subscription.email,
+      id: user._id,
+      name: user.name || subscription.fullName || subscription.name,
+      email: user.email,
+      role: user.role || 'user',
       subscriptionId: subscription._id,
       hasActiveSubscription: true
     };
 
     const token = generateToken(userData);
     console.log('Generated JWT token for user');
+
+    // Get plan name with proper capitalization
+    const planName = subscription.plan
+      ? subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)
+      : subscription.planName;
 
     // Return subscription data with JWT token
     return NextResponse.json({
@@ -90,14 +144,18 @@ export async function POST(request: NextRequest) {
       hasActiveSubscription: true,
       token,
       user: {
-        name: subscription.name,
-        email: subscription.email
+        id: user._id,
+        name: user.name || subscription.fullName || subscription.name,
+        email: user.email,
+        role: user.role || 'user'
       },
       subscription: {
         id: subscription._id,
-        planName: subscription.planName,
+        plan: subscription.plan,
+        planName: planName,
         startDate: subscription.startDate,
-        endDate: subscription.endDate
+        endDate: subscription.endDate,
+        status: subscription.status
       }
     });
   } catch (error: any) {

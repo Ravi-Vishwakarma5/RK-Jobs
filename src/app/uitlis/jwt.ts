@@ -10,10 +10,11 @@ const TOKEN_EXPIRATION = '1h';
 /**
  * Generate a JWT token for a user
  * @param payload - Data to include in the token
+ * @param expiresIn - Token expiration time (default: 1h)
  * @returns The generated JWT token
  */
-export function generateToken(payload: any): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION });
+export function generateToken(payload: any, expiresIn: string = TOKEN_EXPIRATION): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }
 
 /**
@@ -48,7 +49,7 @@ export function isTokenExpired(token: string): boolean {
   try {
     const decoded = jwt.decode(token) as { exp: number };
     if (!decoded || !decoded.exp) return true;
-    
+
     // exp is in seconds, Date.now() is in milliseconds
     return decoded.exp * 1000 < Date.now();
   } catch (error) {

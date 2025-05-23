@@ -7,6 +7,7 @@ import JobCard, { JobPost } from '@/components/ui/JobCard';
 import Button from '@/components/ui/Button';
 import PageLoading from '@/components/ui/PageLoading';
 import { jobPosts } from '@/data/jobPosts';
+import Header from '@/components/ui/Header';
 
 // Define the job interface based on the MongoDB model
 interface MongoJob {
@@ -43,8 +44,115 @@ const convertToJobCardFormat = (job: MongoJob): JobPost => {
 
 export default function JobsPage() {
   const [dbJobs, setDbJobs] = useState<JobPost[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<JobPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [jobTypes, setJobTypes] = useState<string[]>([]);
+  const [experienceLevels, setExperienceLevels] = useState<string[]>([]);
+  const [salaryRanges, setSalaryRanges] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('relevant');
+
+  // Filter and sort jobs based on search, filters, and sort options
+  useEffect(() => {
+    if (dbJobs.length > 0) {
+      let filtered = [...dbJobs];
+
+      // Filter by search term
+      if (searchTerm) {
+        filtered = filtered.filter(job =>
+          (typeof job.title === 'string' ? job.title.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
+          (typeof job.company === 'string' ? job.company.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
+          (typeof job.description === 'string' ? job.description.toLowerCase().includes(searchTerm.toLowerCase()) : false)
+        );
+      }
+
+      // Filter by location
+      if (locationFilter) {
+        filtered = filtered.filter(job =>
+          typeof job.location === 'string' ? job.location.toLowerCase().includes(locationFilter.toLowerCase()) : false
+        );
+      }
+
+      // Filter by job type
+      if (jobTypes.length > 0) {
+        filtered = filtered.filter(job =>
+          job.type && jobTypes.includes(job.type)
+        );
+      }
+
+      // Filter by experience level (assuming job title contains experience level)
+      if (experienceLevels.length > 0) {
+        filtered = filtered.filter(job =>
+          typeof job.title === 'string' && experienceLevels.some(level =>
+            level && job.title.toLowerCase().includes(level.toLowerCase())
+          )
+        );
+      }
+
+      // Filter by salary range
+      if (salaryRanges.length > 0) {
+        filtered = filtered.filter(job => {
+          if (!job.salary || typeof job.salary !== 'string') return false;
+
+          try {
+            // Extract numeric salary value
+            const salaryValue = parseInt(job.salary.replace(/[^0-9]/g, ''));
+
+            if (isNaN(salaryValue)) return false;
+
+            return salaryRanges.some(range => {
+              if (range === '$0 - $50,000') return salaryValue <= 50000;
+              if (range === '$50,000 - $100,000') return salaryValue > 50000 && salaryValue <= 100000;
+              if (range === '$100,000 - $150,000') return salaryValue > 100000 && salaryValue <= 150000;
+              if (range === '$150,000+') return salaryValue > 150000;
+              return false;
+            });
+          } catch (error) {
+            return false; // Handle any parsing errors
+          }
+        });
+      }
+
+      // Sort jobs
+      if (sortBy === 'newest') {
+        filtered.sort((a, b) => {
+          try {
+            const dateA = a.postedDate ? new Date(a.postedDate).getTime() : 0;
+            const dateB = b.postedDate ? new Date(b.postedDate).getTime() : 0;
+            return dateB - dateA;
+          } catch (error) {
+            return 0; // Handle any parsing errors
+          }
+        });
+      } else if (sortBy === 'salary-high-low') {
+        filtered.sort((a, b) => {
+          try {
+            const salaryA = typeof a.salary === 'string' ? parseInt(a.salary.replace(/[^0-9]/g, '')) : 0;
+            const salaryB = typeof b.salary === 'string' ? parseInt(b.salary.replace(/[^0-9]/g, '')) : 0;
+            return (isNaN(salaryB) ? 0 : salaryB) - (isNaN(salaryA) ? 0 : salaryA);
+          } catch (error) {
+            return 0; // Handle any parsing errors
+          }
+        });
+      } else if (sortBy === 'salary-low-high') {
+        filtered.sort((a, b) => {
+          try {
+            const salaryA = typeof a.salary === 'string' ? parseInt(a.salary.replace(/[^0-9]/g, '')) : 0;
+            const salaryB = typeof b.salary === 'string' ? parseInt(b.salary.replace(/[^0-9]/g, '')) : 0;
+            return (isNaN(salaryA) ? 0 : salaryA) - (isNaN(salaryB) ? 0 : salaryB);
+          } catch (error) {
+            return 0; // Handle any parsing errors
+          }
+        });
+      }
+
+      setFilteredJobs(filtered);
+    }
+  }, [dbJobs, searchTerm, locationFilter, jobTypes, experienceLevels, salaryRanges, sortBy]);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -90,11 +198,13 @@ export default function JobsPage() {
               : data.jobs; // Static data is already in the right format
 
             setDbJobs(formattedJobs);
+            setFilteredJobs(formattedJobs);
             console.log('Jobs processed successfully:', formattedJobs.length);
           } else {
             console.warn('No jobs array in response or empty jobs array');
             // Still set empty array to show fallback data
             setDbJobs([]);
+            setFilteredJobs([]);
           }
         } catch (fetchError: any) {
           clearTimeout(timeoutId);
@@ -116,6 +226,7 @@ export default function JobsPage() {
               if (fallbackData.jobs && Array.isArray(fallbackData.jobs)) {
                 const formattedJobs = fallbackData.jobs.map(convertToJobCardFormat);
                 setDbJobs(formattedJobs);
+                setFilteredJobs(formattedJobs);
                 console.log('Jobs fetched from first fallback endpoint:', formattedJobs.length);
               } else {
                 throw new Error('No jobs found in first fallback response');
@@ -139,6 +250,7 @@ export default function JobsPage() {
                 if (testData.jobs && Array.isArray(testData.jobs)) {
                   // Static data is already in the right format
                   setDbJobs(testData.jobs);
+                  setFilteredJobs(testData.jobs);
                   console.log('Jobs fetched from test endpoint:', testData.jobs.length);
                 } else {
                   throw new Error('No jobs found in test endpoint response');
@@ -158,6 +270,7 @@ export default function JobsPage() {
         setError(`Failed to load jobs: ${err.message || 'Unknown error'}`);
         // Still set empty array to show fallback data
         setDbJobs([]);
+        setFilteredJobs([]);
       } finally {
         setIsLoading(false);
       }
@@ -168,43 +281,7 @@ export default function JobsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Link href="/">
-              <Image
-                className="dark:invert"
-                src="/next.svg"
-                alt="Job Portal Logo"
-                width={120}
-                height={30}
-                priority
-              />
-            </Link>
-            <nav className="ml-10 space-x-8 hidden md:flex">
-              <Link href="/" className="text-gray-500 hover:text-gray-900">Home</Link>
-              <Link href="/jobs" className="text-blue-600 font-medium">Browse Jobs</Link>
-              <Link href="/companies" className="text-gray-500 hover:text-gray-900">Companies</Link>
-              <Link href="/about" className="text-gray-500 hover:text-gray-900">About</Link>
-            </nav>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/user"
-              className="rounded-full bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              User Dashboard
-            </Link>
-            <Link
-              href="/admin/login"
-              className="rounded-full bg-gray-600 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors"
-            >
-              Admin Login
-            </Link>
-          </div>
-        </div>
-      </header>
-
+      <Header/>
       {/* Search Section */}
       <section className="bg-blue-700 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -214,13 +291,24 @@ export default function JobsPage() {
                 type="text"
                 placeholder="Job title, keywords, or company"
                 className="flex-1 px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
               <input
                 type="text"
                 placeholder="Location"
                 className="flex-1 px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
               />
-              <Button variant="primary" size="lg">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => {
+                  // Scroll to job listings section
+                  document.getElementById('job-listings')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
                 Search Jobs
               </Button>
             </div>
@@ -246,6 +334,14 @@ export default function JobsPage() {
                           id={`job-type-${type}`}
                           type="checkbox"
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          checked={jobTypes.includes(type)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setJobTypes([...jobTypes, type]);
+                            } else {
+                              setJobTypes(jobTypes.filter(t => t !== type));
+                            }
+                          }}
                         />
                         <label htmlFor={`job-type-${type}`} className="ml-2 text-sm text-gray-700">
                           {type}
@@ -264,6 +360,14 @@ export default function JobsPage() {
                           id={`exp-level-${level}`}
                           type="checkbox"
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          checked={experienceLevels.includes(level)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setExperienceLevels([...experienceLevels, level]);
+                            } else {
+                              setExperienceLevels(experienceLevels.filter(l => l !== level));
+                            }
+                          }}
                         />
                         <label htmlFor={`exp-level-${level}`} className="ml-2 text-sm text-gray-700">
                           {level}
@@ -282,6 +386,14 @@ export default function JobsPage() {
                           id={`salary-${range}`}
                           type="checkbox"
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          checked={salaryRanges.includes(range)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSalaryRanges([...salaryRanges, range]);
+                            } else {
+                              setSalaryRanges(salaryRanges.filter(r => r !== range));
+                            }
+                          }}
                         />
                         <label htmlFor={`salary-${range}`} className="ml-2 text-sm text-gray-700">
                           {range}
@@ -292,7 +404,18 @@ export default function JobsPage() {
                 </div>
 
                 <div>
-                  <Button variant="outline" className="w-full">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setLocationFilter('');
+                      setJobTypes([]);
+                      setExperienceLevels([]);
+                      setSalaryRanges([]);
+                      setSortBy('relevant');
+                    }}
+                  >
                     Clear Filters
                   </Button>
                 </div>
@@ -301,15 +424,21 @@ export default function JobsPage() {
 
             {/* Job Listings */}
             <div className="w-full lg:w-3/4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">All Jobs</h2>
+              <div className="flex justify-between items-center mb-6" id="job-listings">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {filteredJobs.length} {filteredJobs.length === 1 ? 'Job' : 'Jobs'} Found
+                </h2>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-500 mr-2">Sort by:</span>
-                  <select className="text-sm border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option>Most Relevant</option>
-                    <option>Newest</option>
-                    <option>Salary: High to Low</option>
-                    <option>Salary: Low to High</option>
+                  <select
+                    className="text-sm border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                  >
+                    <option value="relevant">Most Relevant</option>
+                    <option value="newest">Newest</option>
+                    <option value="salary-high-low">Salary: High to Low</option>
+                    <option value="salary-low-high">Salary: Low to High</option>
                   </select>
                 </div>
               </div>
@@ -322,10 +451,35 @@ export default function JobsPage() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {dbJobs.length > 0 ? (
-                    dbJobs.map((job) => (
+                  {filteredJobs.length > 0 ? (
+                    filteredJobs.map((job) => (
                       <JobCard key={job.id} job={job} />
                     ))
+                  ) : dbJobs.length > 0 ? (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                      <div className="inline-block p-3 rounded-full bg-gray-100 mb-4">
+                        <svg className="h-8 w-8 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">No jobs match your filters</h3>
+                      <p className="text-gray-500 mb-4">
+                        Try adjusting your search criteria or clearing filters
+                      </p>
+                      <Button
+                        variant="primary"
+                        onClick={() => {
+                          setSearchTerm('');
+                          setLocationFilter('');
+                          setJobTypes([]);
+                          setExperienceLevels([]);
+                          setSalaryRanges([]);
+                          setSortBy('relevant');
+                        }}
+                      >
+                        Clear All Filters
+                      </Button>
+                    </div>
                   ) : (
                     // Fallback to static data if no jobs are fetched
                     jobPosts.map((job) => (

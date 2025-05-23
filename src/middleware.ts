@@ -19,7 +19,10 @@ export function middleware(request: NextRequest) {
     '/_next',
     '/favicon.ico',
     '/subscription-test',
-    '/payment-test'
+    '/payment-test',
+    '/admin/login',
+    '/companies',
+    '/about'
   ];
 
   // Check if the path is public
@@ -31,15 +34,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if this is a job detail page
-  if (path.startsWith('/jobs/') && !path.includes('/application-success')) {
-    console.log(`Job detail page detected: ${path}`);
-    const jobId = path.split('/').pop();
-    console.log(`Job ID extracted: ${jobId}`);
+  // Check if this is a job detail page or company detail page
+  if ((path.startsWith('/jobs/') && !path.includes('/application-success')) ||
+      path.startsWith('/companies/')) {
+    console.log(`Detail page detected: ${path}`);
 
     // Continue with normal navigation
     return NextResponse.next();
   }
+
+  // Check if this is an admin route
+  const isAdminRoute = path.startsWith('/admin') && !path.startsWith('/admin/login');
 
   // Define paths that require subscription and authentication
   const protectedPaths = [
@@ -48,32 +53,56 @@ export function middleware(request: NextRequest) {
     '/user/referrals',
     '/user/interviews',
     '/user/resume-review',
-    '/user/profile',
-    '/admin'
+    '/user/profile'
   ];
 
   // Check if the current path requires subscription and authentication
-  const isProtectedPath = protectedPaths.some(protectedPath =>
+  const isUserProtectedPath = protectedPaths.some(protectedPath =>
     path.startsWith(protectedPath)
   );
 
-  if (isProtectedPath) {
+  // Handle admin routes
+  if (isAdminRoute) {
     // Get the token from cookies
     const token = request.cookies.get('authToken')?.value;
 
-    // If no token is found, check localStorage via client-side redirect
+    // If no token is found, redirect to admin login
     if (!token) {
-      // For server-side middleware, we can't access localStorage directly
-      // So we'll redirect to a client-side auth check page
-      return NextResponse.redirect(new URL('/login', request.url));
+      return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
     // Verify the token
     const decodedToken = verifyToken(token);
 
-    // If the token is invalid or expired, redirect to login
+    // If the token is invalid or expired, redirect to admin login
     if (!decodedToken || isTokenExpired(token)) {
-      const response = NextResponse.redirect(new URL('/login', request.url));
+      const response = NextResponse.redirect(new URL('/admin/login', request.url));
+      response.cookies.delete('authToken');
+      return response;
+    }
+
+    // Check if the user is an admin
+    if (!decodedToken.isAdmin) {
+      // Not an admin, redirect to home page
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+  // Handle user protected routes
+  else if (isUserProtectedPath) {
+    // Get the token from cookies
+    const token = request.cookies.get('authToken')?.value;
+
+    // If no token is found, redirect to home page
+    if (!token) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    // Verify the token
+    const decodedToken = verifyToken(token);
+
+    // If the token is invalid or expired, redirect to home page
+    if (!decodedToken || isTokenExpired(token)) {
+      const response = NextResponse.redirect(new URL('/', request.url));
       response.cookies.delete('authToken');
       return response;
     }
@@ -93,5 +122,7 @@ export const config = {
   matcher: [
     '/user/:path*',
     '/jobs/:id*',
+    '/admin/:path*',
+    '/companies/:id*',
   ],
 };

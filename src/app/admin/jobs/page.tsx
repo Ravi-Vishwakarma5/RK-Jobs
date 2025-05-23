@@ -6,27 +6,92 @@ import PageLoading from '@/components/ui/PageLoading';
 import Button from '@/components/ui/Button';
 import { jobPosts } from '@/data/jobPosts';
 import Link from 'next/link';
+import { getAuthToken } from '@/app/uitlis/auth';
+
+interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  type: string;
+  salary: string;
+  postedDate: string;
+  updatedDate?: string;
+  description: string;
+  requirements: string[];
+  responsibilities: string[];
+  benefits?: string[];
+}
 
 export default function AdminJobsPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [jobs, setJobs] = useState(jobPosts);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Simulate loading data
+  const [error, setError] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  // Fetch jobs from API
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, []);
-  
+    const fetchJobs = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // Get auth token
+        let token = null;
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            token = localStorage.getItem('authToken');
+          }
+        } catch (tokenError) {
+          console.error('Error getting auth token:', tokenError);
+        }
+
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        if (searchQuery) {
+          queryParams.append('search', searchQuery);
+        }
+        if (typeFilter && typeFilter !== 'all') {
+          queryParams.append('type', typeFilter);
+        }
+
+        // Fetch jobs
+        const response = await fetch(`/api/jobs?${queryParams.toString()}`, { headers });
+
+        if (response.ok) {
+          const data = await response.json();
+          setJobs(data.jobs || []);
+
+          // Check if using mock data
+          if (data.source === 'mock') {
+            setError('Using mock data. Connect to MongoDB for real data.');
+          }
+        } else {
+          console.error('Failed to fetch jobs');
+          setError('Failed to fetch jobs. Using mock data instead.');
+          setJobs(jobPosts);
+        }
+      } catch (err) {
+        console.error('Error fetching jobs:', err);
+        setError('Failed to load jobs. Using mock data instead.');
+        setJobs(jobPosts);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, [searchQuery, typeFilter]);
+
   // Filter jobs based on search query
   const filteredJobs = jobs.filter(job => {
     if (!searchQuery) return true;
-    
+
     const query = searchQuery.toLowerCase();
     return (
       job.title.toLowerCase().includes(query) ||
@@ -34,16 +99,16 @@ export default function AdminJobsPage() {
       job.location.toLowerCase().includes(query)
     );
   });
-  
+
   // Handle job selection
   const toggleJobSelection = (jobId: string) => {
-    setSelectedJobs(prev => 
+    setSelectedJobs(prev =>
       prev.includes(jobId)
         ? prev.filter(id => id !== jobId)
         : [...prev, jobId]
     );
   };
-  
+
   // Handle select all
   const toggleSelectAll = () => {
     if (selectedJobs.length === filteredJobs.length) {
@@ -52,29 +117,87 @@ export default function AdminJobsPage() {
       setSelectedJobs(filteredJobs.map(job => job.id));
     }
   };
-  
+
   // Handle delete selected jobs
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedJobs.length === 0) return;
-    
+
     setIsDeleting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      // Get auth token
+      let token = null;
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          token = localStorage.getItem('authToken');
+        }
+      } catch (tokenError) {
+        console.error('Error getting auth token:', tokenError);
+      }
+
+      if (!token) {
+        setError('Authentication required to delete jobs');
+        setIsDeleting(false);
+        return;
+      }
+
+      const headers = { 'Authorization': `Bearer ${token}` };
+
+      // Delete jobs one by one
+      const deletePromises = selectedJobs.map(jobId =>
+        fetch(`/api/jobs/${jobId}`, {
+          method: 'DELETE',
+          headers
+        })
+      );
+
+      const results = await Promise.all(deletePromises);
+
+      // Check if all deletions were successful
+      const allSuccessful = results.every(res => res.ok);
+
+      if (allSuccessful) {
+        // Remove deleted jobs from state
+        setJobs(prev => prev.filter(job => !selectedJobs.includes(job.id)));
+        setSelectedJobs([]);
+      } else {
+        setError('Failed to delete some jobs. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error deleting jobs:', err);
+      setError('Failed to delete jobs. Please try again.');
+
+      // Fallback to client-side deletion for demo
       setJobs(prev => prev.filter(job => !selectedJobs.includes(job.id)));
       setSelectedJobs([]);
+    } finally {
       setIsDeleting(false);
-    }, 1000);
+    }
   };
-  
+
   if (isLoading) {
     return <PageLoading message="Loading jobs..." />;
   }
-  
+
   return (
     <div>
-      <AdminHeader title="Manage Jobs" />
+      <AdminHeader title="Manage Jobs" user={null} />
       <main className="p-6">
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Actions Bar */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="relative w-full sm:w-64">
@@ -96,27 +219,67 @@ export default function AdminJobsPage() {
               </button>
             )}
           </div>
-          
-          <div className="flex gap-3 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDeleteSelected}
-              disabled={selectedJobs.length === 0 || isDeleting}
-              isLoading={isDeleting}
-              loadingText="Deleting..."
-              className="text-red-600 border-red-300 hover:bg-red-50"
-            >
-              Delete Selected
-            </Button>
-            <Link href="/admin/jobs/new">
-              <Button variant="primary" size="sm">
-                Add New Job
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="flex gap-2 overflow-x-auto mb-3 sm:mb-0">
+              <Button
+                variant={typeFilter === 'all' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('all')}
+              >
+                All Types
               </Button>
-            </Link>
+              <Button
+                variant={typeFilter === 'Full-time' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('Full-time')}
+              >
+                Full-time
+              </Button>
+              <Button
+                variant={typeFilter === 'Part-time' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('Part-time')}
+              >
+                Part-time
+              </Button>
+              <Button
+                variant={typeFilter === 'Contract' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('Contract')}
+              >
+                Contract
+              </Button>
+              <Button
+                variant={typeFilter === 'Remote' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('Remote')}
+              >
+                Remote
+              </Button>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeleteSelected}
+                disabled={selectedJobs.length === 0 || isDeleting}
+                isLoading={isDeleting}
+                loadingText="Deleting..."
+                className="text-red-600 border-red-300 hover:bg-red-50"
+              >
+                Delete Selected
+              </Button>
+              <Link href="/admin/new">
+                <Button variant="primary" size="sm">
+                  Add New Job
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
-        
+
         {/* Jobs Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           {filteredJobs.length > 0 ? (

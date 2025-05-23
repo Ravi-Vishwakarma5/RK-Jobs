@@ -18,8 +18,8 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Job Portal - Find Your Dream Job",
-  description: "Browse thousands of job listings and find the perfect match for your skills and experience.",
+  title: "Sarthak Consultancy Service - Find Your Dream Job",
+  description: "Browse thousands of job listings and find the perfect match for your skills and experience with Sarthak Consultancy Service.",
 };
 
 export default function RootLayout({
@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${robotoMono.variable} antialiased`}
+        className={`${inter.variable} ${robotoMono.variable} antialiased min-h-screen flex flex-col`}
       >
         <SubscriptionCheck>
           {children}

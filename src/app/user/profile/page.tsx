@@ -78,11 +78,13 @@ export default function ProfilePage() {
 
   // Get user initials for avatar
   const initials = userData.name
-    .split(' ')
-    .map(name => name[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
+    ? userData.name
+        .split(' ')
+        .map(name => name[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2)
+    : 'U';
 
   return (
     <div>
@@ -96,8 +98,8 @@ export default function ProfilePage() {
                   {initials}
                 </div>
                 <div className="ml-4">
-                  <h2 className="text-xl font-medium text-gray-900">{userData.name}</h2>
-                  <p className="text-gray-500">{userData.email}</p>
+                  <h2 className="text-xl font-medium text-gray-900">{userData.name || 'User'}</h2>
+                  <p className="text-gray-500">{userData.email || 'No email available'}</p>
                 </div>
               </div>
               <Button variant="outline" onClick={handleLogout}>Logout</Button>
@@ -108,15 +110,15 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                <p className="mt-1 text-gray-900">{userData.name}</p>
+                <p className="mt-1 text-gray-900">{userData.name || 'Not provided'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Email</label>
-                <p className="mt-1 text-gray-900">{userData.email}</p>
+                <p className="mt-1 text-gray-900">{userData.email || 'No email available'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Subscription ID</label>
-                <p className="mt-1 text-gray-900 text-sm break-all">{userData.subscriptionId}</p>
+                <p className="mt-1 text-gray-900 text-sm break-all">{userData.subscriptionId || 'Not available'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Subscription Status</label>

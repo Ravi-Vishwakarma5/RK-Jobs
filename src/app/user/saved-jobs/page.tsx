@@ -107,16 +107,28 @@ export default function SavedJobsPage() {
     }
   }, [router]);
 
+  // State to track which job is being removed
+  const [removingJobId, setRemovingJobId] = useState<string | null>(null);
+
   // Function to handle removing a saved job
   const handleRemoveJob = async (jobId: string) => {
     try {
+      console.log(`Removing job with ID: ${jobId}`);
+      setRemovingJobId(jobId);
+
       const success = await removeSavedJob(jobId);
+      console.log(`Remove job result: ${success}`);
+
       if (success) {
         // Update the local state to remove the job
         setUserSavedJobs(prev => prev.filter(job => job.id !== jobId));
+      } else {
+        console.error('Failed to remove job, but no error was thrown');
       }
     } catch (error) {
       console.error('Error removing saved job:', error);
+    } finally {
+      setRemovingJobId(null);
     }
   };
 
@@ -239,7 +251,12 @@ export default function SavedJobsPage() {
               </Link>
             </div>
           ) : (
-            <JobsTable jobs={filteredJobs} type="saved" onRemove={handleRemoveJob} />
+            <JobsTable
+              jobs={filteredJobs}
+              type="saved"
+              onRemove={handleRemoveJob}
+              removingJobId={removingJobId}
+            />
           )}
         </div>
       </main>

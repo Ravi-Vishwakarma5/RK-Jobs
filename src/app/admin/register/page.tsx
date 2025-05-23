@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
-import { registerAdmin, getCurrentUser } from '@/utils/auth';
+import FormLoader from '@/components/ui/FormLoader';
+import { getCurrentUser } from '@/app/uitlis/auth';
 
 export default function AdminRegisterPage() {
   const router = useRouter();
@@ -19,10 +20,10 @@ export default function AdminRegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
 
-  // Check if user is already logged in
+  // Check if user is already logged in as admin
   useEffect(() => {
     const user = getCurrentUser();
-    if (user && user.role === 'admin') {
+    if (user && user.isAdmin) {
       router.push('/admin/dashboard');
     }
   }, [router]);
@@ -88,15 +89,8 @@ export default function AdminRegisterPage() {
     setRegisterError(null);
 
     try {
-      // First try the client-side mock registration
-      const user = await registerAdmin(formData);
+      console.log('Attempting to register admin with email:', formData.email);
 
-      if (user) {
-        router.push('/admin/dashboard');
-        return;
-      }
-
-      // If client-side registration fails, try the API
       const response = await fetch('/api/admin/register', {
         method: 'POST',
         headers: {
@@ -105,22 +99,61 @@ export default function AdminRegisterPage() {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+        console.log('API registration response status:', response.status, 'success:', data.success);
+      } catch (jsonError) {
+        console.error('Error parsing response:', jsonError);
+        setRegisterError('Invalid response from server. Please try again.');
+        return;
+      }
 
       if (response.ok && data.success) {
-        // Store user in localStorage
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
-        router.push('/admin/dashboard');
+        // Show success message
+        alert('Admin registration successful! Redirecting to login page...');
+
+        // Redirect to login page
+        router.push('/admin/login');
       } else {
-        setRegisterError(data.error || 'Registration failed');
+        setRegisterError(data.error || 'Registration failed. Please try again.');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      setRegisterError('An error occurred during registration');
+      setRegisterError('An error occurred during registration. Please check your network connection and try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // If loading, show the form loader
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="flex justify-center">
+            <Image
+              className="dark:invert"
+              src="/next.svg"
+              alt="Job Portal Logo"
+              width={120}
+              height={30}
+              priority
+            />
+          </div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Register Admin Account
+          </h2>
+        </div>
+
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+            <FormLoader fields={4} message="Creating your account..." />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

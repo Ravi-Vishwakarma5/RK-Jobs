@@ -13,7 +13,7 @@ const PageLoading: React.FC<PageLoadingProps> = ({
 }) => {
   const containerClasses = fullScreen
     ? 'fixed inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50'
-    : 'flex flex-col items-center justify-center p-8';
+    : 'flex flex-col items-center justify-center min-h-[300px] p-8';
 
   return (
     <div className={containerClasses}>

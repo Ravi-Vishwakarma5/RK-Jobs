@@ -3,19 +3,28 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import SubscriptionStatus from '@/components/user/SubscriptionStatus';
+import withAuth from '@/components/auth/withAuth';
+import { getCurrentUser, handleTokenExpiration, isTokenExpired } from '@/app/uitlis/auth';
 
-// Mock user data - in a real app, this would come from authentication
-const mockUser = {
-  id: 'user_123456',
-  email: 'user@example.com',
-  fullName: 'John Doe',
-};
-
-export default function UserDashboardPage() {
+function UserDashboardPage() {
+  // Get user data from authentication
+  const user = getCurrentUser() || {
+    id: 'user_123456',
+    email: 'user@example.com',
+    fullName: 'John Doe',
+  };
   const [recentApplications, setRecentApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Check if token exists and is valid
+    const token = localStorage.getItem('authToken');
+    if (!token || isTokenExpired(token)) {
+      console.log('Token is missing or expired in user dashboard');
+      // The withAuth HOC will handle the redirection
+      return;
+    }
+
     const fetchUserData = async () => {
       try {
         // Fetch recent applications
@@ -33,6 +42,19 @@ export default function UserDashboardPage() {
     };
 
     fetchUserData();
+
+    // Set up interval to periodically check token expiration (but don't redirect automatically)
+    const tokenCheckInterval = setInterval(() => {
+      const token = localStorage.getItem('authToken');
+      if (token && isTokenExpired(token)) {
+        console.log('Token expired during user dashboard session');
+        // We'll just log it here, the next navigation will trigger a proper redirect
+      }
+    }, 60000); // Check every minute
+
+    return () => {
+      clearInterval(tokenCheckInterval);
+    };
   }, []);
 
   return (
@@ -48,12 +70,12 @@ export default function UserDashboardPage() {
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
                   <span className="text-2xl font-bold text-blue-600">
-                    {mockUser.fullName.charAt(0)}
+                    {user.fullName?.charAt(0) || user.email?.charAt(0) || '?'}
                   </span>
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold">{mockUser.fullName}</h2>
-                  <p className="text-gray-600">{mockUser.email}</p>
+                  <h2 className="text-xl font-semibold">{user.fullName || 'User'}</h2>
+                  <p className="text-gray-600">{user.email}</p>
                 </div>
               </div>
               <div className="border-t pt-4">
@@ -64,7 +86,7 @@ export default function UserDashboardPage() {
             </div>
 
             {/* Subscription status */}
-            <SubscriptionStatus userId={mockUser.id} email={mockUser.email} />
+            <SubscriptionStatus userId={user.id} email={user.email} />
 
             {/* Quick links */}
             <div className="bg-white p-6 rounded-lg shadow-md">
@@ -200,3 +222,6 @@ export default function UserDashboardPage() {
     </div>
   );
 }
+
+// Export the component wrapped with authentication
+export default withAuth(UserDashboardPage);

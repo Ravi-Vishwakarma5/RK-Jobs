@@ -1,9 +1,11 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Button from './Button';
+import { isAuthenticated } from '@/app/uitlis/auth';
+import { saveJob, removeSavedJob, isJobSaved } from '@/app/uitlis/savedJobs';
 
 export interface JobPost {
   id: string;
@@ -23,6 +25,73 @@ interface JobCardProps {
 }
 
 const JobCard: React.FC<JobCardProps> = ({ job }) => {
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // Check if user is logged in
+    const loggedIn = isAuthenticated();
+    setIsUserLoggedIn(loggedIn);
+
+    // Check if job is already saved
+    const checkIfJobIsSaved = async () => {
+      if (loggedIn) {
+        try {
+          const savedJobs = await fetch('/api/user/saved-jobs', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          }).then(res => res.json());
+
+          if (savedJobs.success && savedJobs.savedJobs) {
+            const jobIsSaved = savedJobs.savedJobs.some((savedJob: any) => savedJob.jobId === job.id);
+            setIsSaved(jobIsSaved);
+          }
+        } catch (error) {
+          console.error('Error checking if job is saved:', error);
+        }
+      }
+    };
+
+    checkIfJobIsSaved();
+  }, [job.id]);
+
+  const handleSaveJob = async () => {
+    if (!isUserLoggedIn) {
+      // Redirect to login page if not logged in
+      window.location.href = '/login';
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (isSaved) {
+        // Remove job from saved jobs
+        const success = await removeSavedJob(job.id);
+        if (success) {
+          setIsSaved(false);
+        }
+      } else {
+        // Save job
+        const success = await saveJob({
+          id: job.id,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          date: new Date().toISOString()
+        });
+        if (success) {
+          setIsSaved(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving/removing job:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex justify-between items-start">
@@ -53,7 +122,15 @@ const JobCard: React.FC<JobCardProps> = ({ job }) => {
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500">Posted {job.postedDate}</span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">Save</Button>
+              <Button
+                variant={isSaved ? "secondary" : "outline"}
+                size="sm"
+                onClick={handleSaveJob}
+                isLoading={isSaving}
+                loadingText="Saving..."
+              >
+                {isSaved ? 'Saved' : 'Save'}
+              </Button>
               <a href={`/jobs/${job.id}`}>
                 <Button
                   variant="primary"

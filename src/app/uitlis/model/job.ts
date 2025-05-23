@@ -6,6 +6,7 @@ interface Job extends Document {
   company: string;
   location: string;
   jobType: string;
+  category: string;
   salary: string;
   logo?: string;
   description: string[];
@@ -23,6 +24,7 @@ const jobSchema = new Schema<Job>(
     company: { type: String, required: true },              // Company name (e.g., "TechCorp")
     location: { type: String, required: true },             // Job location (e.g., "San Francisco, CA")
     jobType: { type: String, required: true },              // Job type (e.g., "Full-time", "Part-Remote")
+    category: { type: String, required: true },             // Job category (e.g., "Technology", "Finance")
     salary: { type: String, required: true },               // Salary range (e.g., "$120,000 - $150,000")
     logo: { type: String, required: false, default: '' },   // Optional logo URL for the company
     description: { type: [String], required: true },        // Array of descriptions
