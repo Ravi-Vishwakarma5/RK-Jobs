@@ -34,18 +34,16 @@ export function isAuthenticated(): boolean {
     const token = localStorage.getItem('authToken');
     if (!token) return false;
 
-    // Check if token is expired
-    const decodedToken = decodeToken(token);
-    if (!decodedToken) return false;
-
-    // Check expiration (exp is in seconds, Date.now() is in milliseconds)
-    const isTokenExpired = decodedToken.exp * 1000 < Date.now();
-
-    if (isTokenExpired) {
+    // Use our isTokenExpired function to check if token is expired
+    if (isTokenExpired(token)) {
       // Clear expired token
       localStorage.removeItem('authToken');
       return false;
     }
+
+    // Also check if we have user data
+    const user = getCurrentUser();
+    if (!user) return false;
 
     return true;
   } catch (error) {
@@ -123,7 +121,19 @@ export function isTokenExpired(token: string | null): boolean {
   if (!token) return true;
 
   try {
-    const decodedToken = decodeToken(token);
+    // Manual decoding for client-side
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return true;
+
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+
+    const decodedToken = JSON.parse(jsonPayload);
     if (!decodedToken || !decodedToken.exp) return true;
 
     // Check expiration (exp is in seconds, Date.now() is in milliseconds)

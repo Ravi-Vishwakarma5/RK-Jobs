@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 // Secret key for signing JWT tokens
 // In a production environment, this should be stored in environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-jwt-tokens';
+const JWT_SECRET = process.env.JWT_SECRET || 'sarthak-consultancy-service-secret-key-2025';
 
 // Token expiration time (1 hour)
 const TOKEN_EXPIRATION = '1h';
@@ -14,7 +14,22 @@ const TOKEN_EXPIRATION = '1h';
  * @returns The generated JWT token
  */
 export function generateToken(payload: any, expiresIn: string = TOKEN_EXPIRATION): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+  try {
+    // Create a clean payload without any functions or circular references
+    const cleanPayload = JSON.parse(JSON.stringify(payload));
+
+    // Generate the token with the specified expiration
+    return jwt.sign(cleanPayload, JWT_SECRET, { expiresIn });
+  } catch (error) {
+    console.error('Error generating token:', error);
+    // Return a fallback token with minimal data in case of error
+    const fallbackPayload = {
+      id: payload.id || 'unknown',
+      isAdmin: payload.isAdmin || false,
+      exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
+    };
+    return jwt.sign(fallbackPayload, JWT_SECRET);
+  }
 }
 
 /**

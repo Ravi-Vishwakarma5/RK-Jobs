@@ -20,37 +20,67 @@ export default function AdminLoginPage() {
   // Check if user is already logged in as admin
   useEffect(() => {
     try {
-      // Check if token exists and is valid
+      // Clear any existing login error
+      setLoginError(null);
+
+      // Get auth token
       const token = localStorage.getItem('authToken');
+
+      // If no token, stay on login page
       if (!token) {
-        // No token, stay on login page
+        console.log('No auth token found, staying on login page');
         return;
       }
 
-      // Check if token is expired
-      try {
-        const decodedToken = JSON.parse(atob(token.split('.')[1]));
-        const isExpired = decodedToken.exp * 1000 < Date.now();
+      // Get user data
+      const user = getCurrentUser();
 
-        if (isExpired) {
-          // Token is expired, clear it and stay on login page
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('currentUser');
-          return;
-        }
-      } catch (tokenError) {
-        console.error('Error decoding token:', tokenError);
-        // Invalid token format, clear it and stay on login page
+      // If no user data or user is not admin, clear token and stay on login page
+      if (!user) {
+        console.log('No user data found, clearing token');
+        localStorage.removeItem('authToken');
+        return;
+      }
+
+      // Check if user is admin
+      if (!user.isAdmin) {
+        console.log('User is not an admin, clearing token');
         localStorage.removeItem('authToken');
         localStorage.removeItem('currentUser');
         return;
       }
 
-      // Check if user exists and is admin
-      const user = getCurrentUser();
-      if (user && user.isAdmin) {
-        console.log('User is already logged in as admin, redirecting to dashboard');
-        router.push('/admin/dashboard');
+      // Check if token is valid (not expired)
+      if (token) {
+        try {
+          // Decode token to check expiration
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+
+          const decodedToken = JSON.parse(jsonPayload);
+          const isExpired = decodedToken.exp * 1000 < Date.now();
+
+          if (isExpired) {
+            console.log('Token is expired, clearing auth data');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            return;
+          }
+
+          // Token is valid and user is admin, redirect to dashboard
+          console.log('User is already logged in as admin, redirecting to dashboard');
+          router.push('/admin/dashboard');
+        } catch (tokenError) {
+          console.error('Error decoding token:', tokenError);
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('currentUser');
+        }
       }
     } catch (error) {
       console.error('Error checking admin authentication:', error);
@@ -109,6 +139,10 @@ export default function AdminLoginPage() {
     try {
       console.log('Attempting admin login with:', formData.email);
 
+      // Clear any existing auth data before attempting login
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('currentUser');
+
       const response = await fetch('/api/admin/login', {
         method: 'POST',
         headers: {
@@ -123,36 +157,62 @@ export default function AdminLoginPage() {
       let data;
       try {
         data = await response.json();
-        console.log('API login response status:', response.status, 'success:', data.success);
+        console.log('API login response status:', response.status, 'success:', data?.success);
       } catch (jsonError) {
         console.error('Error parsing response:', jsonError);
         setLoginError('Invalid response from server. Please try again.');
+        setIsLoading(false);
         return;
       }
 
-      if (response.ok && data.success) {
+      if (response.ok && data && data.success) {
         try {
-          // Store token and user in localStorage
-          if (data.token) {
-            console.log('Storing auth token');
-            localStorage.setItem('authToken', data.token);
-          } else {
+          // Check if token exists in response
+          if (!data.token) {
             console.warn('No token received from server');
             setLoginError('Authentication error: No token received');
+            setIsLoading(false);
             return;
           }
 
-          if (data.user) {
-            // Add isAdmin flag to user data
-            const userData = {
-              ...data.user,
-              isAdmin: true
-            };
-            console.log('Storing admin user data');
-            localStorage.setItem('currentUser', JSON.stringify(userData));
-          } else {
+          // Validate token format
+          const tokenParts = data.token.split('.');
+          if (tokenParts.length !== 3) {
+            console.warn('Invalid token format received');
+            setLoginError('Authentication error: Invalid token format');
+            setIsLoading(false);
+            return;
+          }
+
+          // Check if user data exists in response
+          if (!data.user) {
             console.warn('No user data received from server');
             setLoginError('Authentication error: No user data received');
+            setIsLoading(false);
+            return;
+          }
+
+          // Store token in localStorage
+          console.log('Storing auth token');
+          localStorage.setItem('authToken', data.token);
+
+          // Ensure user data has isAdmin flag
+          const userData = {
+            ...data.user,
+            isAdmin: true
+          };
+
+          console.log('Storing admin user data:', userData);
+          localStorage.setItem('currentUser', JSON.stringify(userData));
+
+          // Verify data was stored correctly
+          const storedToken = localStorage.getItem('authToken');
+          const storedUser = localStorage.getItem('currentUser');
+
+          if (!storedToken || !storedUser) {
+            console.error('Failed to store authentication data');
+            setLoginError('Error storing authentication data. Please try again.');
+            setIsLoading(false);
             return;
           }
 
@@ -161,14 +221,25 @@ export default function AdminLoginPage() {
         } catch (storageError) {
           console.error('Error storing auth data:', storageError);
           setLoginError('Error storing authentication data. Please try again.');
+          setIsLoading(false);
         }
       } else {
-        setLoginError(data.error || 'Invalid email or password');
+        // Handle login failure with detailed error information
+        let errorMessage = data?.error || 'Invalid email or password';
+
+        // Add details if available
+        if (data?.details) {
+          console.error('Login failed details:', data.details);
+          errorMessage += ` (${data.details})`;
+        }
+
+        console.error('Login failed:', errorMessage);
+        setLoginError(errorMessage);
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Login error:', error);
       setLoginError('An error occurred during login. Please check your network connection and try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -222,7 +293,13 @@ export default function AdminLoginPage() {
             Register a new admin account
           </Link>
         </p>
-       
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-md">
+          <p className="text-center text-sm font-medium text-blue-800">Default Admin Credentials</p>
+          <div className="mt-2 text-center">
+            <p className="text-sm text-gray-700">Email: <span className="font-medium">admin@example.com</span></p>
+            <p className="text-sm text-gray-700">Password: <span className="font-medium">admin123</span></p>
+          </div>
+        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

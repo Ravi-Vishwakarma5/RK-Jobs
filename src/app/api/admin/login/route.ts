@@ -37,27 +37,42 @@ export async function POST(request: NextRequest) {
     if (email === 'admin@example.com' && password === 'admin123') {
       console.log('Hardcoded admin credentials match!');
 
-      // Generate a token
-      const token = generateToken({
-        id: 'admin-1',
-        name: 'Admin User',
-        email: email,
-        isAdmin: true
-      }, '1h');
-
-      // Return success with token and user data
-      return NextResponse.json({
-        success: true,
-        token,
-        user: {
+      try {
+        // Generate a token with default expiration time (1 hour)
+        const token = generateToken({
           id: 'admin-1',
           name: 'Admin User',
           email: email,
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString()
-        }
-      });
+          isAdmin: true
+        });
+
+        console.log('Admin token generated successfully');
+
+        // Return success with token and user data
+        return NextResponse.json({
+          success: true,
+          token,
+          user: {
+            id: 'admin-1',
+            name: 'Admin User',
+            email: email,
+            isAdmin: true,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString()
+          }
+        });
+      } catch (tokenError: any) {
+        console.error('Error generating token:', tokenError);
+
+        // Provide more detailed error information
+        return NextResponse.json({
+          success: false,
+          error: 'Error generating authentication token',
+          details: tokenError?.message || 'Unknown token generation error',
+          stack: process.env.NODE_ENV === 'development' ? tokenError?.stack : undefined
+        }, { status: 500 });
+      }
     }
 
     // Try to connect to MongoDB
