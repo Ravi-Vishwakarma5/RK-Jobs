@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/app/uitlis/model/mongodb';
-import AdminModel from '@/app/uitlis/model/admin';
 import { generateToken } from '@/app/uitlis/jwt';
-import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   console.log('POST request received at /api/admin/login');
@@ -38,105 +35,67 @@ export async function POST(request: NextRequest) {
       console.log('Hardcoded admin credentials match!');
 
       try {
-        // Generate a token with default expiration time (1 hour)
-        const token = generateToken({
+        // Create a simple payload for the admin token
+        const adminPayload = {
           id: 'admin-1',
           name: 'Admin User',
           email: email,
-          isAdmin: true
-        });
+          isAdmin: true,
+          role: 'admin'
+        };
 
-        console.log('Admin token generated successfully');
+        console.log('Creating admin token with payload:', adminPayload);
+
+        // Generate token using the JWT utility
+        const token = generateToken(adminPayload, '24h'); // 24 hour expiration
+
+        if (!token) {
+          throw new Error('Token generation returned null or undefined');
+        }
+
+        console.log('Admin token generated successfully, length:', token.length);
+
+        // Create admin user data
+        const adminUser = {
+          id: 'admin-1',
+          name: 'Admin User',
+          email: email,
+          isAdmin: true,
+          role: 'admin',
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString()
+        };
+
+        console.log('Returning admin login success response');
 
         // Return success with token and user data
         return NextResponse.json({
           success: true,
           token,
-          user: {
-            id: 'admin-1',
-            name: 'Admin User',
-            email: email,
-            isAdmin: true,
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            lastLogin: new Date().toISOString()
-          }
+          user: adminUser,
+          message: 'Admin login successful'
         });
       } catch (tokenError: any) {
-        console.error('Error generating token:', tokenError);
+        console.error('Error generating admin token:', tokenError);
+        console.error('Token error stack:', tokenError?.stack);
 
         // Provide more detailed error information
         return NextResponse.json({
           success: false,
           error: 'Error generating authentication token',
           details: tokenError?.message || 'Unknown token generation error',
-          stack: process.env.NODE_ENV === 'development' ? tokenError?.stack : undefined
+          tokenErrorType: tokenError?.name || 'Unknown error type'
         }, { status: 500 });
       }
     }
 
-    // Try to connect to MongoDB
-    try {
-      console.log('Attempting to connect to MongoDB...');
-      await connectDB();
-      console.log('Connected to MongoDB successfully');
-
-      // Find admin by email
-      console.log('Searching for admin in database with email:', email);
-      const admin = await AdminModel.findOne({ email }).exec();
-
-      if (admin) {
-        console.log('Admin found in database, comparing passwords...');
-
-        // Compare passwords
-        const isMatch = await bcrypt.compare(password, admin.password);
-        console.log('Password match result:', isMatch);
-
-        if (isMatch) {
-          console.log('Password matched! Generating token...');
-
-          // Generate JWT token
-          const token = generateToken({
-            id: admin._id.toString(),
-            name: admin.name,
-            email: admin.email,
-            isAdmin: true
-          }, '1h');
-
-          // Update last login
-          admin.lastLogin = new Date();
-          await admin.save();
-
-          // Return success response
-          return NextResponse.json({
-            success: true,
-            token,
-            user: {
-              id: admin._id.toString(),
-              name: admin.name,
-              email: admin.email,
-              status: admin.status,
-              createdAt: admin.createdAt,
-              lastLogin: admin.lastLogin
-            }
-          });
-        }
-      }
-
-      // If admin not found or password doesn't match
-      console.log('Admin not found or password doesn\'t match');
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid email or password'
-      }, { status: 401 });
-
-    } catch (dbError) {
-      console.error('Database error:', dbError);
-      return NextResponse.json({
-        success: false,
-        error: 'Database error occurred. Please try again later.'
-      }, { status: 500 });
-    }
+    // If hardcoded admin credentials don't match, return error immediately
+    console.log('Hardcoded admin credentials do not match');
+    return NextResponse.json({
+      success: false,
+      error: 'Invalid email or password'
+    }, { status: 401 });
 
   } catch (error: any) {
     console.error('Error in admin login:', error);

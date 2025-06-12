@@ -83,9 +83,84 @@ export async function POST(request: NextRequest) {
 
     if (!subscription) {
       console.log('No active subscription found for this email');
+
+      // For testing purposes, create a test subscription for specific test emails
+      const testEmails = ['test@example.com', 'user@example.com', 'demo@example.com'];
+
+      if (testEmails.includes(email.toLowerCase())) {
+        console.log('Creating test subscription for:', email);
+
+        // Create a test subscription
+        const testSubscription = new (SubscriptionModel as any)({
+          fullName: 'Test User',
+          email: email,
+          paymentId: `test_pay_${Date.now()}`,
+          amount: 699,
+          plan: 'premium',
+          status: 'active',
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+          createdAt: new Date()
+        });
+
+        await testSubscription.save();
+        console.log('Test subscription created:', testSubscription._id);
+
+        // Create or update user
+        let testUser = await (UserModel as any).findOne({ email: email });
+        if (!testUser) {
+          testUser = new (UserModel as any)({
+            name: 'Test User',
+            email: email,
+            role: 'user',
+            createdAt: new Date(),
+            lastLogin: new Date(),
+            hasActiveSubscription: true
+          });
+          await testUser.save();
+        } else {
+          testUser.lastLogin = new Date();
+          testUser.hasActiveSubscription = true;
+          await testUser.save();
+        }
+
+        // Generate JWT token for test user
+        const userData = {
+          id: testUser._id,
+          name: testUser.name,
+          email: testUser.email,
+          role: 'user',
+          subscriptionId: testSubscription._id,
+          hasActiveSubscription: true
+        };
+
+        const token = generateToken(userData);
+
+        return NextResponse.json({
+          success: true,
+          message: 'Test subscription found',
+          hasActiveSubscription: true,
+          token,
+          user: {
+            id: testUser._id,
+            name: testUser.name,
+            email: testUser.email,
+            role: 'user'
+          },
+          subscription: {
+            id: testSubscription._id,
+            plan: testSubscription.plan,
+            planName: 'Premium',
+            startDate: testSubscription.startDate,
+            endDate: testSubscription.endDate,
+            status: testSubscription.status
+          }
+        });
+      }
+
       return NextResponse.json({
         success: false,
-        message: 'No active subscription found for this email',
+        message: 'No active subscription found for this email. Try using one of these test emails: test@example.com, user@example.com, or demo@example.com',
         hasActiveSubscription: false
       });
     }

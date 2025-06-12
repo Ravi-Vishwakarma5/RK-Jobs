@@ -15,20 +15,41 @@ const TOKEN_EXPIRATION = '1h';
  */
 export function generateToken(payload: any, expiresIn: string = TOKEN_EXPIRATION): string {
   try {
+    console.log('JWT_SECRET exists:', !!JWT_SECRET);
+    console.log('JWT_SECRET length:', JWT_SECRET.length);
+    console.log('Payload to sign:', payload);
+    console.log('Expiration time:', expiresIn);
+
+    // Validate inputs
+    if (!payload) {
+      throw new Error('Payload is required for token generation');
+    }
+
+    if (!JWT_SECRET) {
+      throw new Error('JWT_SECRET is not defined');
+    }
+
     // Create a clean payload without any functions or circular references
     const cleanPayload = JSON.parse(JSON.stringify(payload));
+    console.log('Clean payload:', cleanPayload);
 
     // Generate the token with the specified expiration
-    return jwt.sign(cleanPayload, JWT_SECRET, { expiresIn });
-  } catch (error) {
+    const token = jwt.sign(cleanPayload, JWT_SECRET, {
+      expiresIn,
+      algorithm: 'HS256' // Explicitly specify algorithm
+    });
+
+    console.log('Token generated successfully, length:', token.length);
+    return token;
+  } catch (error: any) {
     console.error('Error generating token:', error);
-    // Return a fallback token with minimal data in case of error
-    const fallbackPayload = {
-      id: payload.id || 'unknown',
-      isAdmin: payload.isAdmin || false,
-      exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
-    };
-    return jwt.sign(fallbackPayload, JWT_SECRET);
+    console.error('Error name:', error?.name);
+    console.error('Error message:', error?.message);
+    console.error('Error stack:', error?.stack);
+
+    // Re-throw the error instead of returning a fallback token
+    // This will help us identify the actual issue
+    throw new Error(`Token generation failed: ${error?.message || 'Unknown error'}`);
   }
 }
 

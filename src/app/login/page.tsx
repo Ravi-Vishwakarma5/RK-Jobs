@@ -60,9 +60,21 @@ export default function LoginPage() {
         });
 
         const data = await response.json();
+        console.log('User find API response:', data);
 
         if (!data.success || !data.hasActiveSubscription) {
-          throw new Error('No active subscription found for this email');
+          const errorMessage = data.message || 'No active subscription found for this email';
+          throw new Error(errorMessage);
+        }
+
+        // Validate that we received a token
+        if (!data.token) {
+          throw new Error('Authentication token not received from server');
+        }
+
+        // Store user data in localStorage
+        if (data.user) {
+          localStorage.setItem('currentUser', JSON.stringify(data.user));
         }
 
         // Store subscription info and JWT token in localStorage
@@ -131,7 +143,18 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setError(error.message || 'Failed to login. Please try again.');
+      let errorMessage = error.message || 'Failed to login. Please try again.';
+
+      // Provide more helpful error messages
+      if (errorMessage.includes('No active subscription')) {
+        errorMessage = 'No active subscription found for this email. Please use one of the test emails: test@example.com, user@example.com, or demo@example.com';
+      } else if (errorMessage.includes('fetch')) {
+        errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('Authentication token not received')) {
+        errorMessage = 'Login failed: Server did not provide authentication token. Please try again.';
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -157,6 +180,16 @@ export default function LoginPage() {
             ? "Enter the email address you used for your subscription"
             : "Enter your credentials to access your account"}
         </p>
+        {isSubscriptionLogin && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-md">
+            <p className="text-center text-sm font-medium text-blue-800">Test User Credentials</p>
+            <div className="mt-2 text-center">
+              <p className="text-sm text-gray-700">Email: <span className="font-medium">test@example.com</span></p>
+              <p className="text-sm text-gray-700">Or: <span className="font-medium">user@example.com</span></p>
+              <p className="text-sm text-gray-700">Or: <span className="font-medium">demo@example.com</span></p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

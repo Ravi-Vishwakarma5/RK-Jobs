@@ -138,6 +138,8 @@ export default function AdminLoginPage() {
 
     try {
       console.log('Attempting admin login with:', formData.email);
+      console.log('Password provided:', !!formData.password);
+      console.log('Expected credentials: admin@example.com / admin123');
 
       // Clear any existing auth data before attempting login
       localStorage.removeItem('authToken');
@@ -230,10 +232,17 @@ export default function AdminLoginPage() {
         // Add details if available
         if (data?.details) {
           console.error('Login failed details:', data.details);
-          errorMessage += ` (${data.details})`;
+          errorMessage += ` - Details: ${data.details}`;
+        }
+
+        // Add token error type if available
+        if (data?.tokenErrorType) {
+          console.error('Token error type:', data.tokenErrorType);
+          errorMessage += ` (Error type: ${data.tokenErrorType})`;
         }
 
         console.error('Login failed:', errorMessage);
+        console.error('Full response data:', data);
         setLoginError(errorMessage);
         setIsLoading(false);
       }
@@ -293,12 +302,22 @@ export default function AdminLoginPage() {
             Register a new admin account
           </Link>
         </p>
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-md">
-          <p className="text-center text-sm font-medium text-blue-800">Default Admin Credentials</p>
-          <div className="mt-2 text-center">
-            <p className="text-sm text-gray-700">Email: <span className="font-medium">admin@example.com</span></p>
-            <p className="text-sm text-gray-700">Password: <span className="font-medium">admin123</span></p>
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-center text-sm font-bold text-blue-900 mb-2">🔑 Default Admin Credentials</p>
+          <div className="text-center space-y-1">
+            <p className="text-sm text-gray-800">Email: <span className="font-bold text-blue-700">admin@example.com</span></p>
+            <p className="text-sm text-gray-800">Password: <span className="font-bold text-blue-700">admin123</span></p>
           </div>
+          <p className="text-xs text-gray-600 text-center mt-2">Use these exact credentials to login</p>
+          <button
+            type="button"
+            onClick={() => {
+              setFormData({ email: 'admin@example.com', password: 'admin123' });
+            }}
+            className="mt-2 w-full text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 py-1 px-2 rounded"
+          >
+            Auto-fill credentials
+          </button>
         </div>
       </div>
 

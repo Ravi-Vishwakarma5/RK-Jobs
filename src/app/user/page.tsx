@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import { isAuthenticated, getAuthToken, logout } from '@/app/uitlis/auth';
 import { verifyToken, decodeToken } from '@/app/uitlis/jwt';
-import { fetchSavedJobs, SavedJob } from '@/app/uitlis/savedJobs';
+import { fetchSavedJobs, SavedJob, saveJob } from '@/app/uitlis/savedJobs';
 
 // Mock data for the dashboard
 const recentApplications = [
@@ -249,7 +249,7 @@ export default function UserDashboard() {
     localStorage.removeItem('authToken');
        router.push('/');
     logout();
- 
+
   };
 
   if (isLoading) {
