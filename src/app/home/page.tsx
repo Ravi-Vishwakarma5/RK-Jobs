@@ -277,7 +277,7 @@ export default function Home() {
 
           {/* Category filters */}
           <div className="mb-6 sm:mb-8 overflow-x-auto">
-            <div className="flex space-x-2 pb-2 min-w-max">
+            <div className="flex space-x-2 pb-2 min-w-max mt-3 ml-2">
               <Button
                 variant={activeCategory === 'All' ? 'secondary' : 'outline'}
                 size="sm"

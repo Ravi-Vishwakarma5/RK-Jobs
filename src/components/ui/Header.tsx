@@ -196,7 +196,7 @@ const Header: React.FC<HeaderProps> = ({ transparent = false }) => {
 
             {/* Mobile Auth Links */}
             <div className="pt-2 border-t border-gray-200">
-              {isLoggedIn ? (
+              {isLoggedIn || localStorage.get('free_token') ? (
                 <>
                   <Link
                     href="/user"

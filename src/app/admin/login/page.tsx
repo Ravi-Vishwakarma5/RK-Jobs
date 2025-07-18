@@ -24,7 +24,7 @@ export default function AdminLoginPage() {
       setLoginError(null);
 
       // Get auth token
-      const token = localStorage.getItem('authToken');
+          const token = localStorage.getItem('authToken');
 
       // If no token, stay on login page
       if (!token) {
@@ -137,9 +137,11 @@ export default function AdminLoginPage() {
     setLoginError(null);
 
     try {
-      console.log('Attempting admin login with:', formData.email);
-      console.log('Password provided:', !!formData.password);
-      console.log('Expected credentials: admin@example.com / admin123');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Attempting admin login with:', formData.email);
+        console.log('Password provided:', !!formData.password);
+        console.log('Expected credentials: admin@example.com / admin123');
+      }
 
       // Clear any existing auth data before attempting login
       localStorage.removeItem('authToken');
@@ -159,9 +161,13 @@ export default function AdminLoginPage() {
       let data;
       try {
         data = await response.json();
-        console.log('API login response status:', response.status, 'success:', data?.success);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('API login response status:', response.status, 'success:', data?.success);
+        }
       } catch (jsonError) {
-        console.error('Error parsing response:', jsonError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error parsing response:', jsonError);
+        }
         setLoginError('Invalid response from server. Please try again.');
         setIsLoading(false);
         return;
@@ -171,7 +177,9 @@ export default function AdminLoginPage() {
         try {
           // Check if token exists in response
           if (!data.token) {
-            console.warn('No token received from server');
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('No token received from server');
+            }
             setLoginError('Authentication error: No token received');
             setIsLoading(false);
             return;
@@ -180,7 +188,9 @@ export default function AdminLoginPage() {
           // Validate token format
           const tokenParts = data.token.split('.');
           if (tokenParts.length !== 3) {
-            console.warn('Invalid token format received');
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('Invalid token format received');
+            }
             setLoginError('Authentication error: Invalid token format');
             setIsLoading(false);
             return;
@@ -188,14 +198,18 @@ export default function AdminLoginPage() {
 
           // Check if user data exists in response
           if (!data.user) {
-            console.warn('No user data received from server');
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('No user data received from server');
+            }
             setLoginError('Authentication error: No user data received');
             setIsLoading(false);
             return;
           }
 
           // Store token in localStorage
-          console.log('Storing auth token');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Storing auth token');
+          }
           localStorage.setItem('authToken', data.token);
 
           // Ensure user data has isAdmin flag
@@ -204,7 +218,9 @@ export default function AdminLoginPage() {
             isAdmin: true
           };
 
-          console.log('Storing admin user data:', userData);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Storing admin user data:', userData);
+          }
           localStorage.setItem('currentUser', JSON.stringify(userData));
 
           // Verify data was stored correctly
@@ -212,16 +228,22 @@ export default function AdminLoginPage() {
           const storedUser = localStorage.getItem('currentUser');
 
           if (!storedToken || !storedUser) {
-            console.error('Failed to store authentication data');
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Failed to store authentication data');
+            }
             setLoginError('Error storing authentication data. Please try again.');
             setIsLoading(false);
             return;
           }
 
-          console.log('Admin login successful, redirecting to dashboard');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Admin login successful, redirecting to dashboard');
+          }
           router.push('/admin/dashboard');
         } catch (storageError) {
-          console.error('Error storing auth data:', storageError);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error storing auth data:', storageError);
+          }
           setLoginError('Error storing authentication data. Please try again.');
           setIsLoading(false);
         }
@@ -229,21 +251,22 @@ export default function AdminLoginPage() {
         // Handle login failure with detailed error information
         let errorMessage = data?.error || 'Invalid email or password';
 
-        // Add details if available
-        if (data?.details) {
-          console.error('Login failed details:', data.details);
+        // Add details if available (only in dev)
+        if (data?.details && process.env.NODE_ENV === 'development') {
           errorMessage += ` - Details: ${data.details}`;
         }
 
-        // Add token error type if available
-        if (data?.tokenErrorType) {
-          console.error('Token error type:', data.tokenErrorType);
+        // Add token error type if available (only in dev)
+        if (data?.tokenErrorType && process.env.NODE_ENV === 'development') {
           errorMessage += ` (Error type: ${data.tokenErrorType})`;
         }
 
-        console.error('Login failed:', errorMessage);
-        console.error('Full response data:', data);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Login failed:', errorMessage);
+          console.error('Full response data:', data);
+        }
         setLoginError(errorMessage);
+        setFormData(prev => ({ ...prev, password: '' })); // Clear password on error
         setIsLoading(false);
       }
     } catch (error) {
@@ -324,7 +347,11 @@ export default function AdminLoginPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {loginError && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            <div
+              className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded"
+              role="alert"
+              aria-live="assertive"
+            >
               {loginError}
             </div>
           )}
@@ -339,7 +366,8 @@ export default function AdminLoginPage() {
                   id="email"
                   name="email"
                   type="email"
-                  autoComplete="email"
+                  autoComplete="username"
+                  autoFocus
                   value={formData.email}
                   onChange={handleChange}
                   className={`appearance-none block w-full px-3 py-2 border ${
@@ -380,6 +408,7 @@ export default function AdminLoginPage() {
                 className="w-full"
                 isLoading={isLoading}
                 loadingText="Logging in..."
+                disabled={isLoading}
               >
                 Sign in
               </Button>

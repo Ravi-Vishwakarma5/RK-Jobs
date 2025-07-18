@@ -147,12 +147,12 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700">Token Expiration</label>
                 <p className="mt-1 text-gray-900">{tokenExpiration.toLocaleString()}</p>
               </div>
-              <div className="md:col-span-2">
+              {/* <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">JWT Token</label>
                 <p className="mt-1 text-xs text-gray-500 break-all bg-gray-50 p-2 rounded">
                   {getAuthToken() || 'No token found'}
                 </p>
-              </div>
+              </div> */}
             </div>
           </Card>
 
