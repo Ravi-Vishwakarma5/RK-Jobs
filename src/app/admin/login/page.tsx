@@ -319,20 +319,20 @@ export default function AdminLoginPage() {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Admin Login
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
+        {/* <p className="mt-2 text-center text-sm text-gray-600">
           Or{' '}
           <Link href="/admin/register" className="font-medium text-blue-600 hover:text-blue-500">
             Register a new admin account
           </Link>
-        </p>
+        </p> */}
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-center text-sm font-bold text-blue-900 mb-2">🔑 Default Admin Credentials</p>
-          <div className="text-center space-y-1">
+          {/* <p className="text-center text-sm font-bold text-blue-900 mb-2">🔑 Default Admin Credentials</p> */}
+          {/* <div className="text-center space-y-1">
             <p className="text-sm text-gray-800">Email: <span className="font-bold text-blue-700">admin@example.com</span></p>
             <p className="text-sm text-gray-800">Password: <span className="font-bold text-blue-700">admin123</span></p>
-          </div>
-          <p className="text-xs text-gray-600 text-center mt-2">Use these exact credentials to login</p>
-          <button
+          </div> */}
+          {/* <p className="text-xs text-gray-600 text-center mt-2">Use these exact credentials to login</p> */}
+          {/* <button
             type="button"
             onClick={() => {
               setFormData({ email: 'admin@example.com', password: 'admin123' });
@@ -340,7 +340,7 @@ export default function AdminLoginPage() {
             className="mt-2 w-full text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 py-1 px-2 rounded"
           >
             Auto-fill credentials
-          </button>
+          </button> */}
         </div>
       </div>
 
