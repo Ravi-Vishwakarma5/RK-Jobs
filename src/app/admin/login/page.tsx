@@ -339,7 +339,6 @@ export default function AdminLoginPage() {
             }}
             className="mt-2 w-full text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 py-1 px-2 rounded"
           >
-            Auto-fill credentials
           </button> */}
         </div>
       </div>
