@@ -532,7 +532,7 @@ export default function Home() {
           <section className="bg-blue-700 text-white py-16">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="max-w-3xl">
-                <h1 className="text-4xl font-bold mb-4">Find Your Dream Job Today</h1>
+                <h1 className="text-4xl font-bold mb-4 ">Find Your Dream Job Today</h1>
                 <p className="text-xl mb-8">Subscribe to unlock premium features and boost your job search.</p>
 
                 <div className="flex flex-col sm:flex-row gap-4">

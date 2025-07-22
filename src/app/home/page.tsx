@@ -226,10 +226,10 @@ export default function Home() {
 
          <Header />
       {/* Hero Section */}
-      <section className="bg-blue-700 text-white py-10 sm:py-16">
+      <section className="bg-blue-700 text-white py-10 sm:py-16 ">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-4">Find Your Dream Job Today</h1>
+          <div className="max-w-3xl text">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-4 ">Find Your Dream Job Today</h1>
             <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8">Browse thousands of job listings and find the perfect match for your skills and experience.</p>
 
             <div className="bg-white rounded-lg p-3 sm:p-4 shadow-lg">
