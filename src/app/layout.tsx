@@ -18,7 +18,7 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sarthak Consultancy Service - Find Your Dream Job",
+  title: "RK Jobs - Find Your Dream Job",
   description: "Browse thousands of job listings and find the perfect match for your skills and experience with Sarthak Consultancy Service.",
 };
 
