@@ -51,7 +51,7 @@ A comprehensive job portal application built with Next.js, React, and MongoDB.
 
 3. Create a `.env.local` file with the following variables:
    ```
-   MONGODB_URI=mongodb://127.0.0.1:27017/job-portal
+   MONGODB_URI=Your_mongodb_uri
    RAZORPAY_KEY_ID=your_razorpay_key_id
    RAZORPAY_KEY_SECRET=your_razorpay_key_secret
    NEXT_PUBLIC_APP_URL=http://localhost:3000
