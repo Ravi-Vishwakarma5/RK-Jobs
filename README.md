@@ -40,7 +40,7 @@ A comprehensive job portal application built with Next.js, React, and MongoDB.
 
 1. Clone the repository:
    ```
-   git clone https://github.com/Shivam6388469930/Job-Protal.git
+   git clone https://github.com/Ravi-Vishwakarma5/RK-Jobs.git
    ```
 
 2. Install dependencies:
